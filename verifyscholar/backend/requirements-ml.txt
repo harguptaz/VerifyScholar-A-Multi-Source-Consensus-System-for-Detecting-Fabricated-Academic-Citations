@@ -1,0 +1,5 @@
+# OPTIONAL: meaning-based similarity for the relevance check (Mode C).
+# Without this the app falls back to a simple word-overlap (TF-IDF) similarity.
+# Tip: install the CPU-only build of PyTorch first to avoid a multi-GB CUDA download:
+#   pip install torch --index-url https://download.pytorch.org/whl/cpu
+sentence-transformers>=2.7

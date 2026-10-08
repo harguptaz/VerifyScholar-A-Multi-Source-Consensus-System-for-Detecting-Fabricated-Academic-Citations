@@ -1,0 +1,65 @@
+# ---------- Secrets and local config ----------
+.env
+.env.*
+!.env.example
+
+# ---------- Python / backend ----------
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+venv/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+
+# ---------- Local data: SQLite cache, transparency log, exports ----------
+*.db
+*.sqlite
+*.sqlite3
+*.db-journal
+*.db-wal
+*.db-shm
+data/
+exports/
+uploads/
+tmp/
+
+# ---------- Model / embedding caches ----------
+.cache/
+huggingface/
+sentence_transformers/
+
+# ---------- Frontend (React + Vite) ----------
+node_modules/
+frontend/node_modules/
+frontend/dist/
+frontend/build/
+frontend/.vite/
+frontend/coverage/
+*.tsbuildinfo
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# ---------- Docker ----------
+docker-compose.override.yml
+
+# ---------- Editors and OS ----------
+.vscode/
+.idea/
+*.swp
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# ---------- Logs ----------
+*.log
+logs/
+
+# ---------- Generated archives and patches ----------
+*.zip
+*.patch

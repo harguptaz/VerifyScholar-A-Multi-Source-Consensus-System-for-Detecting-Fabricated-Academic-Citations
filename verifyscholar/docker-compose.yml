@@ -1,0 +1,49 @@
+# VerifyScholar: GROBID + backend (FastAPI) + frontend (React, served by nginx)
+#
+#   cp .env.example .env     # then edit CONTACT_EMAIL and OPENALEX_API_KEY
+#   docker compose up --build
+#
+# Frontend: http://localhost:3000   API docs: http://localhost:8000/docs   GROBID: http://localhost:8070
+services:
+  grobid:
+    image: lfoppiano/grobid:0.8.0   # lightweight CRF image; needs roughly 2-4 GB of RAM
+    init: true
+    ulimits:
+      core: 0
+    ports:
+      - "8070:8070"
+    restart: unless-stopped
+
+  backend:
+    build:
+      context: ./backend
+      args:
+        INSTALL_LIBREOFFICE: "true"   # DOCX support
+        INSTALL_ML: "false"           # "true" = sentence-transformers for the relevance check
+    env_file: .env
+    environment:
+      GROBID_URL: http://grobid:8070
+      DATABASE_URL: sqlite:////app/data/verifyscholar.db
+      CORS_ORIGINS: http://localhost:3000,http://localhost:5173
+    volumes:
+      - vs-data:/app/data
+    ports:
+      - "8000:8000"
+    depends_on:
+      - grobid
+    restart: unless-stopped
+
+  frontend:
+    build:
+      context: ./frontend
+      args:
+        # The browser calls the API directly, so this must be reachable from YOUR browser.
+        VITE_API_BASE_URL: http://localhost:8000
+    ports:
+      - "3000:80"
+    depends_on:
+      - backend
+    restart: unless-stopped
+
+volumes:
+  vs-data:

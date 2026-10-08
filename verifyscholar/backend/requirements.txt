@@ -1,0 +1,12 @@
+# Runtime dependencies (tested with Python 3.12; works on 3.10+)
+fastapi>=0.110,<1.0
+uvicorn[standard]>=0.27,<1.0
+httpx>=0.27,<1.0
+pydantic>=2.6,<3.0
+pydantic-settings>=2.2,<3.0
+SQLAlchemy>=2.0,<3.0
+rapidfuzz>=3.6,<4.0
+lxml>=5.0,<7.0
+tenacity>=8.2,<10.0
+reportlab>=4.0,<6.0
+python-multipart>=0.0.9,<1.0
