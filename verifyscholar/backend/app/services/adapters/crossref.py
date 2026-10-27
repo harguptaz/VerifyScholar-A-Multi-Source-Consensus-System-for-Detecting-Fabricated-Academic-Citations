@@ -217,3 +217,16 @@ class CrossRefAdapter(SourceAdapter):
         items = ((res.data or {}).get("message", {}) or {}).get("items", []) or []
         recs = [item_to_record(i) for i in items]
         return AdapterResponse("ok" if recs else "not_found", recs, desc, res.http_status)
+
+    async def journal_year_count(self, issn: str, year: int) -> AdapterResponse:
+        """How many works CrossRef holds for one journal in one year (`total`). It measures how well CrossRef covers the journal."""
+        flt = f"from-pub-date:{year},until-pub-date:{year}"
+        params = self._params({"rows": 0, "filter": flt})
+        desc = f"GET /journals/{issn}/works?filter={flt}&rows=0"
+        res = await self.http.get_json(f"{self.base}/journals/{quote(issn, safe='')}/works", params=params)
+        if res.status == "not_found":
+            return AdapterResponse("ok", [], desc, res.http_status, total=0)
+        if res.status != "ok":
+            return AdapterResponse(res.status, [], desc, res.http_status, res.error)
+        total = ((res.data or {}).get("message") or {}).get("total-results")
+        return AdapterResponse("ok", [], desc, res.http_status, total=int(total) if total is not None else 0)

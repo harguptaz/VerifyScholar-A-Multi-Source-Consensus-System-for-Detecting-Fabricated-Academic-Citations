@@ -72,10 +72,16 @@ class HttpService:
     def _host_limit(self, url: str) -> Optional[asyncio.Semaphore]:
         """A per-service concurrency cap, created lazily (semaphores belong to the running event loop)."""
         host = urlparse(url).hostname or ""
-        limits = {
-            (urlparse(self.settings.openalex_base_url).hostname or ""): self.settings.openalex_max_concurrent_requests,
-            (urlparse(self.settings.crossref_base_url).hostname or ""): self.settings.crossref_max_concurrent_requests,
-        }
+        st = self.settings
+        limits: Dict[str, int] = {}
+        for base_url, cap in (
+            (st.openalex_base_url, st.openalex_max_concurrent_requests),
+            (st.crossref_base_url, st.crossref_max_concurrent_requests),
+            (st.dblp_base_url, st.dblp_max_concurrent_requests),
+            (st.datacite_base_url, st.datacite_max_concurrent_requests),
+            (st.openlibrary_base_url, st.openlibrary_max_concurrent_requests),
+        ):
+            limits[urlparse(base_url).hostname or ""] = cap
         if host not in limits or limits[host] <= 0:
             return None
         if host not in self._host_sems:

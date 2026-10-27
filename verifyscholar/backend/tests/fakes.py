@@ -1,4 +1,4 @@
-"""A fake CrossRef / OpenAlex / DOAJ for tests: canned JSON served through httpx.MockTransport."""
+"""A fake CrossRef / OpenAlex / DOAJ / DBLP / DataCite / Open Library for tests: canned JSON served through httpx.MockTransport."""
 from __future__ import annotations
 
 import json
@@ -44,6 +44,40 @@ def openalex_work(doi: str, title: str, authors: List[str], journal: str, year: 
     }
 
 
+def dblp_hit(title: str, authors: List[str], venue: str, year: int, key: str = "conf/x/Test", pages: str = "", doi: str | None = None,
+             type_: str = "Conference and Workshop Papers", volume: str = "") -> Dict[str, Any]:
+    """One DBLP search hit, shaped like the real API: the title ends with a period; one author is a dict, several are a list."""
+    people = [{"@pid": f"p/{i}", "text": a} for i, a in enumerate(authors)]
+    info: Dict[str, Any] = {
+        "authors": {"author": people[0] if len(people) == 1 else people}, "title": title + ".", "venue": venue, "year": str(year), "type": type_,
+        "access": "open", "key": key, "ee": f"https://doi.org/{doi}" if doi else f"https://example.org/{key}", "url": f"https://dblp.org/rec/{key}",
+    }
+    if pages:
+        info["pages"] = pages
+    if volume:
+        info["volume"] = volume
+    return {"@score": "5", "@id": "1", "info": info}
+
+
+def datacite_item(doi: str, title: str, creators: List[tuple], year: int, publisher: Any = "Zenodo", type_general: str = "Preprint",
+                  container: Dict[str, Any] | None = None) -> Dict[str, Any]:
+    return {
+        "id": doi, "type": "dois",
+        "attributes": {
+            "doi": doi, "titles": [{"title": title}],
+            "creators": [{"name": f"{f}, {g}", "nameType": "Personal", "givenName": g, "familyName": f} for f, g in creators],
+            "publisher": publisher, "publicationYear": year, "container": container or {},
+            "types": {"resourceTypeGeneral": type_general}, "url": f"https://zenodo.org/records/{doi.split('.')[-1]}",
+            "dates": [{"date": f"{year}-05-01", "dateType": "Issued"}], "citationCount": 3,
+        },
+    }
+
+
+def openlibrary_doc(title: str, authors: List[str], first_year: int, editions: List[int] | None = None, publisher: str = "Penguin", key: str = "/works/OL1W") -> Dict[str, Any]:
+    return {"key": key, "title": title, "author_name": authors, "first_publish_year": first_year, "publish_year": editions or [first_year],
+            "publisher": [publisher], "language": ["eng"], "edition_count": len(editions or [1])}
+
+
 class FakeWeb:
     def __init__(self) -> None:
         self.crossref: Dict[str, Dict[str, Any]] = {}
@@ -56,7 +90,13 @@ class FakeWeb:
         self.doaj_issns: Dict[str, Dict[str, Any]] = {}
         self.notices: Dict[str, List[Dict[str, Any]]] = {}  # doi -> list of {DOI, type, source}
         self.cr_journals: List[Dict[str, Any]] = []
+        self.journal_year_counts: Dict[tuple, int] = {}  # (issn, year) -> total-results of a CrossRef journal/year query
         self.registered_prefixes: set[str] = set()
+        self.dblp_hits: List[Dict[str, Any]] = []  # returned for every DBLP search
+        self.datacite: Dict[str, Dict[str, Any]] = {}  # doi -> DataCite item
+        self.datacite_search: List[Dict[str, Any]] = []
+        self.datacite_prefixes: set[str] = set()
+        self.openlibrary_docs: List[Dict[str, Any]] = []
         self.down: set[str] = set()
         self.fail_first: Dict[str, int] = {}  # host -> number of initial requests that fail with HTTP 503
         self.calls: List[str] = []
@@ -78,6 +118,12 @@ class FakeWeb:
             return self._openalex(path, q)
         if host == "doaj.org":
             return self._doaj(path)
+        if host == "dblp.org":
+            return self._dblp()
+        if host == "api.datacite.org":
+            return self._datacite(path)
+        if host == "openlibrary.org":
+            return self._openlibrary(path)
         if host == "doi.org":
             return httpx.Response(404, text="not found")
         return httpx.Response(404, json={})
@@ -105,6 +151,13 @@ class FakeWeb:
             return httpx.Response(200, json={"status": "ok", "message": {"items": self.cr_journals}})
         m = re.match(r"^/journals/([^/]+)/works$", path)
         if m:
+            year_filter = re.search(r"from-pub-date:(\d{4})", q.get("filter", ""))
+            if year_filter:  # "how many works does CrossRef hold for this journal in this year?"
+                year = int(year_filter.group(1))
+                count = self.journal_year_counts.get((m.group(1), year))
+                if count is None:
+                    count = sum(1 for w in self.crossref.values() if m.group(1) in (w.get("ISSN") or []) and w["issued"]["date-parts"][0][0] == year)
+                return httpx.Response(200, json={"status": "ok", "message": {"items": [], "total-results": count}})
             order = q.get("order", "asc")
             works = [w for w in self.crossref.values() if m.group(1) in (w.get("ISSN") or [])]
             works.sort(key=lambda w: w["issued"]["date-parts"][0][0], reverse=(order == "desc"))
@@ -137,6 +190,32 @@ class FakeWeb:
             name = q.get("search", "")
             exists = "nonexistent" not in name.lower()
             return httpx.Response(200, json={"results": [{"id": "A1"}] if exists else [], "meta": {"count": 1 if exists else 0}})
+        return httpx.Response(404, json={})
+
+    def _dblp(self) -> httpx.Response:
+        hits = {"@total": str(len(self.dblp_hits)), "@computed": str(len(self.dblp_hits)), "@sent": str(len(self.dblp_hits)), "@first": "0"}
+        if self.dblp_hits:  # like the real API, a search without results has no "hit" key at all
+            hits["hit"] = self.dblp_hits
+        return httpx.Response(200, json={"result": {"query": "q", "status": {"@code": "200", "text": "OK"}, "hits": hits}})
+
+    def _datacite(self, path: str) -> httpx.Response:
+        if path.startswith("/dois/"):
+            doi = path[len("/dois/"):].lower()
+            if doi in self.datacite:
+                return httpx.Response(200, json={"data": self.datacite[doi]})
+            return httpx.Response(404, json={"errors": [{"status": "404", "title": "The resource you are looking for doesn't exist."}]})
+        if path == "/dois":
+            return httpx.Response(200, json={"data": self.datacite_search, "meta": {"total": len(self.datacite_search)}})
+        if path.startswith("/prefixes/"):
+            prefix = path.split("/")[-1]
+            if prefix in self.datacite_prefixes:
+                return httpx.Response(200, json={"data": {"id": prefix, "type": "prefixes"}})
+            return httpx.Response(404, json={"errors": [{"status": "404"}]})
+        return httpx.Response(404, json={})
+
+    def _openlibrary(self, path: str) -> httpx.Response:
+        if path == "/search.json":
+            return httpx.Response(200, json={"numFound": len(self.openlibrary_docs), "start": 0, "numFoundExact": True, "docs": self.openlibrary_docs})
         return httpx.Response(404, json={})
 
     def _doaj(self, path: str) -> httpx.Response:

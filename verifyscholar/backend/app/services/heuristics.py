@@ -16,10 +16,12 @@ from typing import Dict, List, Optional
 from ..schemas import CitationResult, HeuristicFlag, ParsedCitation
 from ..utils.text import first_int, normalize
 from .adapters.crossref import CrossRefAdapter
+from .adapters.datacite import DataCiteAdapter
 from .adapters.openalex import OpenAlexAdapter
 from .http_client import RequestContext
 from .matching import abbreviation_similarity, similarity
 from .parsing import looks_like_template
+from .scoring import COVERAGE_CODE
 
 # Publisher brand -> DOI prefix. Used to spot "IEEE journal, non-IEEE DOI" combinations.
 BRAND_PREFIXES = {"ieee": "10.1109", "acm": "10.1145", "plos": "10.1371"}
@@ -87,8 +89,13 @@ async def network_flags(
     ctx: RequestContext,
     doi_not_found: bool,
     skip_journal: bool = False,
+    datacite: Optional[DataCiteAdapter] = None,
 ) -> List[HeuristicFlag]:
-    """Checks that need data from CrossRef / OpenAlex. Failures are swallowed: no data, no flag."""
+    """Checks that need data from CrossRef / OpenAlex. Failures are swallowed: no data, no flag.
+
+    With `datacite`, a DOI prefix that CrossRef does not know is also looked up there (arXiv, Zenodo and figshare DOIs are
+    registered with DataCite) and is only flagged when neither registration agency has it.
+    """
     flags: List[HeuristicFlag] = []
 
     async def prefix_rule() -> None:
@@ -97,10 +104,20 @@ async def network_flags(
         prefix = parsed.doi.split("/")[0]
         resp = await crossref.prefix_registered(prefix)
         ctx.log(crossref.label, resp.query, "Match found" if resp.status == "ok" else ("No record" if resp.status == "not_found" else f"Source unavailable ({resp.error})"))
-        if resp.status == "not_found":
+        if resp.status != "not_found":
+            return
+        if datacite is None:
             flags.append(HeuristicFlag(
                 code="prefix_not_registered", severity="medium",
                 message=f"The DOI prefix {prefix} is not registered with CrossRef (it may belong to another registration agency, or not exist)",
+            ))
+            return
+        dc = await datacite.prefix_registered(prefix)
+        ctx.log(datacite.label, dc.query, "Match found" if dc.status == "ok" else ("No record" if dc.status == "not_found" else f"Source unavailable ({dc.error})"))
+        if dc.status == "not_found":  # an unavailable DataCite proves nothing, so only a definite "no" raises the flag
+            flags.append(HeuristicFlag(
+                code="prefix_not_registered", severity="medium",
+                message=f"The DOI prefix {prefix} is not registered with CrossRef or DataCite (it may belong to another registration agency, or not exist)",
             ))
 
     async def journal_rules() -> None:
@@ -156,6 +173,46 @@ async def network_flags(
 
     await asyncio.gather(*(asyncio.create_task(_safe(c())) for c in (prefix_rule, journal_rules, author_rule)))
     return flags
+
+
+async def journal_coverage_flag(
+    parsed: ParsedCitation, crossref: CrossRefAdapter, ctx: RequestContext, in_doaj: bool, max_year_works: int,
+) -> Optional[HeuristicFlag]:
+    """Is the cited journal real but so thinly indexed that "paper not found" says little?
+
+    Only for a citation that was not found at all. The journal counts as real when CrossRef knows it under the SAME name
+    (or its standard abbreviation), or when DOAJ lists it. The flag is raised when CrossRef holds at most `max_year_works`
+    articles from the cited year (or does not index the journal at all). A well-covered journal returns nothing: a paper that
+    is absent from a journal CrossRef covers properly is exactly the fabrication pattern, so it stays a Ghost.
+    """
+    if not parsed.journal or not parsed.year or parsed.kind in ("book", "conference", "preprint"):
+        return None
+    resp = await crossref.find_journal(parsed.journal)
+    ctx.log(crossref.label, resp.query, "Match found" if resp.status == "ok" else ("No record" if resp.status == "not_found" else f"Source unavailable ({resp.error})"))
+    if resp.status == "unavailable":
+        return None
+    known = None
+    for rec in resp.records:
+        name = rec.journal or ""
+        if same_journal_name(parsed.journal, name) or abbreviation_similarity(parsed.journal, name) >= 0.99:
+            known = rec
+            break
+    if known is None and not in_doaj:
+        return None  # the journal was not shown to exist: that is a different (stronger) signal, not a coverage gap
+    shown = known.journal if known and known.journal else parsed.journal
+    if known is None or not known.issn:
+        return HeuristicFlag(
+            code=COVERAGE_CODE, severity="low",
+            message=f"The journal “{shown}” is listed in DOAJ but was not found in CrossRef under that name, so a missing paper is weak evidence of fabrication",
+        )
+    count = await crossref.journal_year_count(known.issn[0], parsed.year)
+    ctx.log(crossref.label, count.query, "Match found" if count.status == "ok" else f"Source unavailable ({count.error})")
+    if count.status != "ok" or count.total is None or count.total > max_year_works:
+        return None
+    return HeuristicFlag(
+        code=COVERAGE_CODE, severity="low",
+        message=f"The journal “{shown}” exists, but CrossRef holds only {count.total} article{'s' if count.total != 1 else ''} from {parsed.year}, so a missing paper is weak evidence of fabrication",
+    )
 
 
 async def _safe(coro) -> None:

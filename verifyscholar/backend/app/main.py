@@ -36,7 +36,7 @@ async def lifespan(app: FastAPI):
 app = FastAPI(
     title="VerifyScholar API",
     version="1.0.0",
-    description="Verify AI-generated academic citations against CrossRef, OpenAlex and DOAJ; find papers; check relevance.",
+    description="Verify AI-generated academic citations against CrossRef, OpenAlex, DOAJ, DBLP, DataCite and Open Library; find papers; check relevance.",
     lifespan=lifespan,
 )
 app.add_middleware(
@@ -66,7 +66,7 @@ async def health() -> dict:
 
 @app.get("/health/sources", tags=["system"])
 async def health_sources() -> dict:
-    """Live connectivity test for CrossRef, OpenAlex and DOAJ, with the reason when one fails.
+    """Live connectivity test for CrossRef, OpenAlex, DOAJ and the enabled secondary sources (DBLP, DataCite, Open Library).
 
     Each source is asked for a record that is known to exist. Responses are not cached. Use it when every
     citation comes back "Inconclusive": it shows whether the backend can reach the internet and whether your
@@ -81,6 +81,12 @@ async def health_sources() -> dict:
         "openalex": (f"{s.openalex_base_url.rstrip('/')}/works/doi:10.1038/nature14539", oa_params),
         "doaj": (f"{s.doaj_base_url.rstrip('/')}/search/journals/{quote('issn:0028-0836', safe='')}", {}),
     }
+    if s.enable_dblp:
+        probes["dblp"] = (f"{s.dblp_base_url.rstrip('/')}/search/publ/api", {"q": "attention is all you need", "format": "json", "h": 1})
+    if s.enable_datacite:
+        probes["datacite"] = (f"{s.datacite_base_url.rstrip('/')}/dois/10.48550/arxiv.1607.06450", {})
+    if s.enable_openlibrary:
+        probes["openlibrary"] = (f"{s.openlibrary_base_url.rstrip('/')}/search.json", {"title": "thinking fast and slow", "limit": 1})
 
     async def probe(name: str, url: str, params: dict) -> tuple[str, dict]:
         res = await http_service.get_json(url, params=params, use_cache=False)

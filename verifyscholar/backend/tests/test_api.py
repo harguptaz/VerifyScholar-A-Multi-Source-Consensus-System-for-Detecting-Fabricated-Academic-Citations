@@ -230,8 +230,12 @@ def test_health_sources_reports_each_source_and_the_reason(client, web):
     web.crossref["10.1038/nature14539"] = crossref_item("10.1038/nature14539", "Deep learning", [("LeCun", "Y")], "Nature", 2015)
     web.openalex["10.1038/nature14539"] = openalex_work("10.1038/nature14539", "Deep learning", ["Yann LeCun"], "Nature", 2015, "W1")
     body = client.get("/health/sources").json()
-    assert {k: v["ok"] for k, v in body.items()} == {"crossref": True, "openalex": True, "doaj": True}
+    assert {k: v["ok"] for k, v in body.items()} == {"crossref": True, "openalex": True, "doaj": True, "dblp": True, "datacite": True, "openlibrary": True}
 
     web.down = {"api.openalex.org"}
     body = client.get("/health/sources").json()
     assert body["openalex"]["ok"] is False and "Cannot reach" in body["openalex"]["detail"] and body["crossref"]["ok"] is True
+
+    web.down = {"dblp.org"}
+    body = client.get("/health/sources").json()
+    assert body["dblp"]["ok"] is False and body["datacite"]["ok"] is True and body["crossref"]["ok"] is True

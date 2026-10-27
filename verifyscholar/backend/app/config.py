@@ -19,6 +19,13 @@ class Settings(BaseSettings):
     crossref_base_url: str = "https://api.crossref.org"
     openalex_base_url: str = "https://api.openalex.org"
     doaj_base_url: str = "https://doaj.org/api"
+    # secondary sources: free, no key. They are asked only when CrossRef and OpenAlex do not settle a citation.
+    dblp_base_url: str = "https://dblp.org"  # computer-science conferences and journals
+    datacite_base_url: str = "https://api.datacite.org"  # arXiv, Zenodo, figshare and other DataCite DOIs
+    openlibrary_base_url: str = "https://openlibrary.org"  # books
+    enable_dblp: bool = True
+    enable_datacite: bool = True
+    enable_openlibrary: bool = True
     doi_resolver_url: str = "https://doi.org"
     grobid_url: str = "http://localhost:8070"
     grobid_timeout_seconds: int = 180
@@ -31,18 +38,25 @@ class Settings(BaseSettings):
     cache_negative_ttl_hours: int = 2
 
     # ---- HTTP behaviour ----------------------------------------------------------------
-    http_timeout_seconds: float = 20.0
-    http_max_attempts: int = 4
-    http_backoff_min_seconds: float = 1.0
-    http_backoff_max_seconds: float = 8.0
+    http_timeout_seconds: float = 12.0
+    http_max_attempts: int = 3
+    http_backoff_min_seconds: float = 0.5
+    http_backoff_max_seconds: float = 4.0
     http_max_concurrent_requests: int = 8
     # per-service caps: OpenAlex throttles bursts, so a few citations in parallel can already trigger HTTP 429
     openalex_max_concurrent_requests: int = 3
     crossref_max_concurrent_requests: int = 6
+    dblp_max_concurrent_requests: int = 2  # DBLP answers HTTP 429 to bursts
+    datacite_max_concurrent_requests: int = 4
+    openlibrary_max_concurrent_requests: int = 2
     # citations whose source did not answer are retried once at the end of a job
     retry_unavailable: bool = True
     retry_pause_seconds: float = 3.0
     max_parallel_citations: int = 5
+    # time budgets: a slow source is reported as "unavailable" instead of holding the whole citation back
+    source_time_budget_seconds: float = 25.0  # CrossRef / OpenAlex, per citation (all requests of that source together)
+    side_check_budget_seconds: float = 10.0  # DOAJ, retraction check, fabrication heuristics, journal coverage check
+    secondary_time_budget_seconds: float = 12.0  # DBLP / DataCite / Open Library, per citation (the three run side by side)
 
     # ---- limits ------------------------------------------------------------------------
     max_citations_per_job: int = 200
@@ -57,6 +71,9 @@ class Settings(BaseSettings):
     penalty_cap: int = 40
     doaj_bonus: int = 5
     agreement_bonus: int = 5
+    # a real journal in which CrossRef holds this few articles for the cited year is "thinly indexed":
+    # a paper missing from it is weak evidence, so the citation is "Inconclusive (not indexed)" instead of "Ghost"
+    not_indexed_max_year_works: int = 25
 
     # ---- relevance (Mode C) ------------------------------------------------------------
     embedding_backend: str = "auto"  # auto | sentence-transformers | tfidf

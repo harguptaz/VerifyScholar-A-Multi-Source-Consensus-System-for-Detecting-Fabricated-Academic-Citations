@@ -22,6 +22,16 @@ def lucene_phrase(title: str) -> str:
     return f'"{cleaned}"'
 
 
+_ISSN = re.compile(r"^(\d{4})-?(\d{3}[\dXx])$")
+
+
+def normalize_issn(value: Optional[str]) -> Optional[str]:
+    """'15491676', ' 1549-1676 ' and 'issn 1549-167x' all become the form DOAJ expects ('1549-1676', '1549-167X'); anything else is None."""
+    text = re.sub(r"(?i)^e?issn[:\s]*", "", (value or "").strip())
+    m = _ISSN.match(text.replace(" ", ""))
+    return f"{m.group(1)}-{m.group(2).upper()}" if m else None
+
+
 @dataclass
 class JournalCheck:
     status: str  # match | no_record | unavailable

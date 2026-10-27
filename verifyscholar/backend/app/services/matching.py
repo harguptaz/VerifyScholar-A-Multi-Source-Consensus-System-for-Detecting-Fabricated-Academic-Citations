@@ -29,6 +29,23 @@ def _title_prefix(a: str, b: str) -> bool:
     return len(ta) >= 3 and len(ta) < len(tb) and tb[: len(ta)] == ta
 
 
+def _main_title(title: str) -> str:
+    """The part of a book title before the subtitle ("Thinking, Fast and Slow: the best seller" -> "Thinking, Fast and Slow")."""
+    return title.split(":", 1)[0].strip()
+
+
+def _book_title_similarity(cited: str, found: str) -> float:
+    """Books are catalogued with or without their subtitle. Compare the full titles and, when only one of them carries a
+    subtitle, the main titles too - but only for a main title of three or more words, so that "Deep Learning: a practical
+    approach" is not taken for the book "Deep Learning"."""
+    sim = similarity(cited, found)
+    if (":" in cited) != (":" in found):
+        a, b = _main_title(cited), _main_title(found)
+        if len(normalize(a).split()) >= 3 and len(normalize(b).split()) >= 3:
+            sim = max(sim, similarity(a, b))
+    return sim
+
+
 def _status(sim: float, hi: float, lo: float) -> str:
     return "match" if sim >= hi else ("partial" if sim >= lo else "mismatch")
 
@@ -122,6 +139,30 @@ def author_overlap(cited_families: List[str], record_families: List[str]) -> Tup
     return matched / len(cited_families), first_ok
 
 
+# A record dated later than the cited year is not always a different paper. Sources often hold a re-registered
+# copy or a preprint posted years after the original publication, with no journal, volume or pages.
+LATE_REGISTRATION_TYPES = {"posted-content", "preprint"}
+LATE_REGISTRATION_MAX_GAP = 10  # years
+
+
+def _later_registration(citation: ParsedCitation, record: PaperRecord, years: set, f: Dict[str, FieldMatch]) -> bool:
+    """The cited year is earlier than every year the record carries, and the record looks like a later copy of the same work.
+
+    That needs a strong title AND author match, a gap of at most LATE_REGISTRATION_MAX_GAP years, and a record that is
+    either bare (no journal, volume or pages) or a preprint. A full article record with a different year stays a mismatch,
+    because "right paper, wrong year" is exactly what this tool must report.
+    """
+    if not citation.year or not years:
+        return False
+    gap = min(years) - citation.year
+    if not (0 < gap <= LATE_REGISTRATION_MAX_GAP):
+        return False
+    if f["title"].status != "match" or f["authors"].status != "match":
+        return False
+    bare = not (record.journal or record.volume or record.pages)
+    return bare or (record.type or "") in LATE_REGISTRATION_TYPES
+
+
 def _pages_equal(a: str, b: str) -> bool:
     fa, fb = first_int(a), first_int(b)
     if fa is not None and fb is not None:
@@ -136,9 +177,13 @@ def compare(citation: ParsedCitation, record: PaperRecord, matched_by: str = "se
     # ---- title ---------------------------------------------------------------------------
     if record.title:
         if citation.title:
-            sim = similarity(citation.title, record.title)
-            if _title_prefix(citation.title, record.title):
-                sim = max(sim, 0.9)  # references often drop the subtitle or the end of a long title
+            if citation.kind == "book":
+                # no prefix shortcut for books: "Introduction to Algorithms" is not "Introduction to Algorithms for Beginners"
+                sim = _book_title_similarity(citation.title, record.title)
+            else:
+                sim = similarity(citation.title, record.title)
+                if _title_prefix(citation.title, record.title):
+                    sim = max(sim, 0.9)  # references often drop the subtitle or the end of a long title
             f["title"] = FieldMatch(submitted=citation.title, found=record.title, similarity=sim, status=_status(sim, 0.9, 0.7))  # type: ignore[arg-type]
             cmp.title_sim = sim
         else:
@@ -173,7 +218,12 @@ def compare(citation: ParsedCitation, record: PaperRecord, matched_by: str = "se
         f["journal"] = FieldMatch(submitted=citation.journal, found=record.journal, status="missing")
     elif citation.journal and (record.journal or record.journal_aliases):
         sim, name = journal_similarity(citation.journal, record, conference=citation.kind == "conference")
-        f["journal"] = FieldMatch(submitted=citation.journal, found=name, similarity=round(sim, 3), status=_status(sim, 0.85, 0.6))  # type: ignore[arg-type]
+        status = _status(sim, 0.85, 0.6)
+        if status == "mismatch" and "dblp" in record.sources:
+            # DBLP lists venues by short name ("NIPS", "Proc. VLDB Endow."), so a different spelling proves nothing
+            f["journal"] = FieldMatch(submitted=citation.journal, found=name, similarity=round(sim, 3), status="missing")
+        else:
+            f["journal"] = FieldMatch(submitted=citation.journal, found=name, similarity=round(sim, 3), status=status)  # type: ignore[arg-type]
     else:
         f["journal"] = FieldMatch(submitted=citation.journal, found=record.journal, status="missing")
 
@@ -188,6 +238,8 @@ def compare(citation: ParsedCitation, record: PaperRecord, matched_by: str = "se
             st, sim = "mismatch", 0.0
         if st == "mismatch" and citation.arxiv_id and arxiv_year(citation.arxiv_id) == citation.year:
             st, sim = "partial", 0.5  # the cited year is the arXiv submission year; sources often list a later version/venue year
+        if st == "mismatch" and _later_registration(citation, record, years, f):
+            st, sim = "partial", 0.5  # a bare or preprint copy registered later than the cited year (not a "wrong year")
         f["year"] = FieldMatch(submitted=str(citation.year), found=str(record.year), similarity=sim, status=st)  # type: ignore[arg-type]
     else:
         f["year"] = FieldMatch(submitted=str(citation.year) if citation.year else None, found=str(record.year) if record.year else None, status="missing")

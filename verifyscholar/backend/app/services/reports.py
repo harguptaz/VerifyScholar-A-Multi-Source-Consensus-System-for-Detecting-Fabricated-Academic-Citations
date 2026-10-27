@@ -20,7 +20,7 @@ from ..schemas import JobResult, LogResponse
 
 _VERDICT_LABEL = {"verified": "Verified", "suspicious": "Suspicious", "ghost": "Ghost", "inconclusive": "Inconclusive"}
 _DOI_LABEL = {"found": "Found", "mismatch": "Mismatch", "not_found": "Not found", "no_doi": "No DOI in citation", "unavailable": "Source unavailable"}
-_JOURNAL_LABEL = {"verified_in_index": "Verified in CrossRef/OpenAlex", "found_in_doaj": "Found in DOAJ only", "not_found": "Not found", "not_provided": "Not provided", "unavailable": "Source unavailable"}
+_JOURNAL_LABEL = {"verified_in_index": "Verified in a bibliographic source", "found_in_doaj": "Found in DOAJ only", "not_found": "Not found", "not_provided": "Not provided", "unavailable": "Source unavailable"}
 _RELEVANCE_LABEL = {"well_supported": "Well supported", "possibly_misattributed": "Possibly misattributed", "background": "Background / off-topic", "needs_review": "Needs review"}
 
 
@@ -118,7 +118,7 @@ def report_pdf(jr: JobResult, job_id: str) -> bytes:
         rows.append([str(r.index), _truncate(r.raw, 220), _VERDICT_LABEL[r.verdict], "—" if r.confidence is None else str(r.confidence),
                      _DOI_LABEL[r.doi_status], _JOURNAL_LABEL[r.journal_status], retr, match])
     intro = [_summary_line(jr), f"Job {job_id} · generated {datetime.now(timezone.utc).strftime('%Y-%m-%d %H:%M UTC')}"]
-    footer = ["Verdicts are based on CrossRef, OpenAlex and DOAJ records and are advisory. A missing record can mean the paper is not indexed, not only that it is fabricated."]
+    footer = ["Verdicts are based on CrossRef, OpenAlex, DOAJ, DBLP, DataCite and Open Library records and are advisory. A missing record can mean the paper is not indexed, not only that it is fabricated."]
     if jr.document and jr.document.orphan_indices:
         footer.append("References never cited in the text: " + ", ".join(f"#{i}" for i in jr.document.orphan_indices))
     return _pdf("VerifyScholar verification report", intro, ["#", "Citation (as submitted)", "Verdict", "Score", "DOI", "Journal", "Retraction", "Matched paper"], rows, [4, 38, 8, 5, 9, 12, 8, 26], footer)
