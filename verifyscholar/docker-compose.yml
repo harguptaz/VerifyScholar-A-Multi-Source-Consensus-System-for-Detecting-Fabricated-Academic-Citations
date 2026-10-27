@@ -8,6 +8,8 @@ services:
   grobid:
     image: lfoppiano/grobid:0.8.0   # lightweight CRF image; needs roughly 2-4 GB of RAM
     init: true
+    environment:
+      JAVA_TOOL_OPTIONS: "-XX:-UseContainerSupport"
     ulimits:
       core: 0
     ports:
