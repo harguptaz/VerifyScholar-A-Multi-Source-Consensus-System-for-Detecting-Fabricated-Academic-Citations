@@ -1,9 +1,10 @@
-import { useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { api } from "../api";
 import { DOI_STATUS_LABEL, JOURNAL_STATUS_LABEL, RELEVANCE_LABEL } from "../format";
 import type { CitationResult, JobResult, Verdict } from "../types";
 import { BibliographyExport } from "./BibliographyExport";
 import { DetailPanel } from "./DetailPanel";
+import { Modal } from "./Modal";
 import { RetractionBadge, ScoreBar, VerdictBadge } from "./Badges";
 import { TransparencyLog } from "./TransparencyLog";
 
@@ -40,6 +41,32 @@ export function Report({ jobId, result, onOpenFinder }: Props) {
   }, [result.results, filter, sort]);
 
   const selectedResult = result.results.find((r) => r.index === selected) ?? null;
+
+  // prev / next follow the table as currently filtered and sorted
+  const pos = selected == null ? -1 : rows.findIndex((r) => r.index === selected);
+  const prevIndex = pos > 0 ? rows[pos - 1].index : null;
+  const nextIndex = pos >= 0 && pos < rows.length - 1 ? rows[pos + 1].index : null;
+
+  // On close, put keyboard focus back on the row that is now highlighted (it may differ from the one
+  // that was opened if the user stepped through citations).
+  const detailButtons = useRef(new Map<number, HTMLButtonElement>());
+  const lastShown = useRef<number | null>(null);
+  useEffect(() => {
+    if (selected != null) {
+      lastShown.current = selected;
+    } else if (lastShown.current != null) {
+      detailButtons.current.get(lastShown.current)?.focus();
+      lastShown.current = null;
+    }
+  }, [selected]);
+
+  const closeDetail = useCallback(() => setSelected(null), []);
+  // "Open in Paper Finder" / "Find a replacement" switch tabs, so the modal must not stay on top
+  const openFinderFromDetail = useCallback((kind: "lookup" | "search", q: string) => {
+    lastShown.current = null;
+    setSelected(null);
+    onOpenFinder(kind, q);
+  }, [onOpenFinder]);
   const download = async (fmt: "csv" | "pdf") => {
     setError(null);
     try {
@@ -99,7 +126,7 @@ export function Report({ jobId, result, onOpenFinder }: Props) {
       {tab === "log" ? (
         <TransparencyLog jobId={jobId} />
       ) : (
-        <div className={selectedResult ? "report-body with-detail" : "report-body"}>
+        <div className="report-body">
           <div className="report-main">
             <div className="toolbar">
               <div className="chips">
@@ -138,7 +165,15 @@ export function Report({ jobId, result, onOpenFinder }: Props) {
                           {r.relevance?.orphan ? <span className="chip src-no_record">Never cited</span> : r.relevance?.label ? RELEVANCE_LABEL[r.relevance.label] : <span className="muted">—</span>}
                         </td>
                       )}
-                      <td><button className="link" onClick={(e) => { e.stopPropagation(); setSelected(r.index); }}>View detail</button></td>
+                      <td>
+                        <button
+                          className="link"
+                          ref={(el) => { if (el) detailButtons.current.set(r.index, el); else detailButtons.current.delete(r.index); }}
+                          onClick={(e) => { e.stopPropagation(); setSelected(r.index); }}
+                        >
+                          View detail
+                        </button>
+                      </td>
                     </tr>
                   ))}
                   {rows.length === 0 && <tr><td colSpan={isDocument ? 8 : 7} className="muted center">No citations match this filter.</td></tr>}
@@ -146,7 +181,18 @@ export function Report({ jobId, result, onOpenFinder }: Props) {
               </table>
             </div>
           </div>
-          {selectedResult && <DetailPanel result={selectedResult} onClose={() => setSelected(null)} onOpenFinder={onOpenFinder} />}
+          {selectedResult && (
+            <Modal label={`Citation ${selectedResult.index} detail`} onClose={closeDetail}>
+              <DetailPanel
+                result={selectedResult}
+                onClose={closeDetail}
+                onOpenFinder={openFinderFromDetail}
+                position={pos >= 0 ? { current: pos + 1, total: rows.length } : undefined}
+                onPrev={prevIndex != null ? () => setSelected(prevIndex) : undefined}
+                onNext={nextIndex != null ? () => setSelected(nextIndex) : undefined}
+              />
+            </Modal>
+          )}
         </div>
       )}
     </section>

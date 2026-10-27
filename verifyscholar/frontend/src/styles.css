@@ -107,8 +107,7 @@ span.chip { cursor: default; } .chip.active { background: var(--brand); color: #
 .report { margin-top: 1.4rem; }
 .report-top { display: flex; justify-content: space-between; gap: 1rem; flex-wrap: wrap; align-items: flex-start; }
 .summary-row { margin: .2rem 0 .6rem; font-size: 1.02rem; }
-.report-body { display: block; } .report-body.with-detail { display: grid; grid-template-columns: minmax(0, 1.4fr) minmax(360px, 1fr); gap: 1rem; align-items: start; }
-@media (max-width: 1000px) { .report-body.with-detail { grid-template-columns: 1fr; } }
+.report-body { display: block; }
 .toolbar { display: flex; justify-content: space-between; gap: 1rem; flex-wrap: wrap; align-items: center; margin-bottom: .6rem; } .chips { display: flex; gap: .35rem; flex-wrap: wrap; } .sort { display: flex; gap: .4rem; align-items: center; font-size: .9rem; }
 .table-wrap { overflow-x: auto; background: var(--card); border: 1px solid var(--line); border-radius: var(--radius); }
 table.data { width: 100%; border-collapse: collapse; font-size: .9rem; }
@@ -119,9 +118,24 @@ table.data td { padding: .55rem .7rem; border-bottom: 1px solid #edf0f3; vertica
 .log-head { display: flex; justify-content: space-between; gap: 1rem; flex-wrap: wrap; align-items: center; } .chain-ok { color: var(--good); font-weight: 600; } .chain-bad { color: var(--bad); font-weight: 700; }
 .log-table td { font-size: .82rem; }
 
-/* detail panel */
-.detail { background: var(--card); border: 1px solid var(--line); border-radius: var(--radius); padding: 1rem 1.2rem; position: sticky; top: .8rem; max-height: calc(100vh - 1.6rem); overflow-y: auto; }
-.detail-head { display: flex; justify-content: space-between; align-items: flex-start; } .detail-verdict { display: flex; gap: .5rem; align-items: center; flex-wrap: wrap; margin-top: .2rem; }
+/* modal */
+.modal-backdrop { position: fixed; inset: 0; z-index: 1000; display: flex; align-items: center; justify-content: center; padding: 1.5rem; background: rgba(16, 36, 43, .55); -webkit-backdrop-filter: blur(4px); backdrop-filter: blur(4px); animation: modal-fade .15s ease-out; }
+.modal-card { background: var(--card); border-radius: 14px; box-shadow: 0 24px 60px rgba(16, 36, 43, .28), 0 4px 12px rgba(16, 36, 43, .12); width: 100%; max-width: 860px; max-height: 85vh; display: flex; flex-direction: column; overflow: hidden; animation: modal-pop .18s ease-out; }
+.modal-card:focus { outline: none; }
+@keyframes modal-fade { from { opacity: 0; } to { opacity: 1; } }
+@keyframes modal-pop { from { opacity: 0; transform: translateY(8px) scale(.98); } to { opacity: 1; transform: none; } }
+@media (prefers-reduced-motion: reduce) { .modal-backdrop, .modal-card { animation: none; } }
+@media (max-width: 640px) { .modal-backdrop { padding: 0; align-items: stretch; } .modal-card { max-width: none; max-height: none; border-radius: 0; } .detail table.data { display: block; overflow-x: auto; } }
+
+/* detail (shown inside the modal) */
+.detail { display: flex; flex-direction: column; min-height: 0; flex: 1; }
+.detail-head { display: flex; justify-content: space-between; align-items: flex-start; gap: 1rem; padding: 1rem 1.3rem .8rem; border-bottom: 1px solid var(--line); }
+.detail-verdict { display: flex; gap: .5rem; align-items: center; flex-wrap: wrap; margin-top: .2rem; }
+.detail-nav { display: flex; gap: .25rem; align-items: center; flex-shrink: 0; }
+.detail-nav .icon-btn { width: 34px; height: 34px; border-radius: 8px; display: inline-grid; place-items: center; }
+.detail-nav .icon-btn:hover:not(:disabled) { background: var(--bg); color: var(--ink); }
+.detail-nav .icon-btn:disabled { opacity: .3; cursor: not-allowed; }
+.detail-body { overflow-y: auto; padding: .2rem 1.3rem 1.2rem; overscroll-behavior: contain; }
 .raw { margin: .8rem 0; padding: .6rem .8rem; background: #f6f8fa; border-left: 3px solid var(--line); font-size: .88rem; word-break: break-word; }
 .reason { font-size: .93rem; } .detail section { margin-bottom: .4rem; } .detail table.data th, .detail table.data td { padding: .4rem .5rem; }
 .flags { list-style: none; padding: 0; margin: 0; } .flags li { margin: .3rem 0; font-size: .9rem; }

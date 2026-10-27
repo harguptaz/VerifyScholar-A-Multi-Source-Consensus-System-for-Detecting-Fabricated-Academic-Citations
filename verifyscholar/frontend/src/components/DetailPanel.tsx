@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { api } from "../api";
 import { DOI_STATUS_LABEL, FIELD_LABEL, JOURNAL_STATUS_LABEL, RELEVANCE_LABEL, VERDICT_LABEL, pct } from "../format";
 import { useExportList } from "../exportList";
@@ -9,6 +9,17 @@ interface Props {
   result: CitationResult;
   onClose: () => void;
   onOpenFinder: (kind: "lookup" | "search", q: string) => void;
+  /** Where this citation sits in the report's current filter and sort, e.g. { current: 2, total: 4 }. */
+  position?: { current: number; total: number };
+  /** Step to the previous / next citation; the buttons and arrow keys are disabled when omitted. */
+  onPrev?: () => void;
+  onNext?: () => void;
+}
+
+/** Arrow keys should not switch citations while the user is typing or choosing from a menu. */
+function isTypingTarget(t: EventTarget | null): boolean {
+  if (!(t instanceof HTMLElement)) return false;
+  return t.isContentEditable || ["INPUT", "SELECT", "TEXTAREA"].includes(t.tagName);
 }
 
 const KIND_TEXT: Record<string, string> = { article: "an article", preprint: "a preprint", conference: "a conference paper", book: "a book" };
@@ -24,7 +35,7 @@ function sourceStatusText(s: SourceResult): string {
   }
 }
 
-export function DetailPanel({ result, onClose, onOpenFinder }: Props) {
+export function DetailPanel({ result, onClose, onOpenFinder, position, onPrev, onNext }: Props) {
   const list = useExportList();
   const [style, setStyle] = useState<Style>("apa");
   const [copied, setCopied] = useState<string | null>(null);
@@ -38,6 +49,27 @@ export function DetailPanel({ result, onClose, onOpenFinder }: Props) {
   const [tab, setTab] = useState(0);
   const active = recordSources[Math.min(tab, Math.max(0, recordSources.length - 1))];
   const record = result.record;
+  const bodyRef = useRef<HTMLDivElement>(null);
+
+  // Moving to another citation: start at the top with a fresh comparison tab and no stale "copied" text.
+  useEffect(() => {
+    setTab(0);
+    setCopied(null);
+    setCopyError(null);
+    if (bodyRef.current) bodyRef.current.scrollTop = 0;
+  }, [result.index]);
+
+  // Left / right arrow keys step through citations.
+  useEffect(() => {
+    if (!onPrev && !onNext) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.altKey || e.ctrlKey || e.metaKey || e.shiftKey || isTypingTarget(e.target)) return;
+      if (e.key === "ArrowLeft" && onPrev) { e.preventDefault(); onPrev(); }
+      if (e.key === "ArrowRight" && onNext) { e.preventDefault(); onNext(); }
+    };
+    document.addEventListener("keydown", onKey);
+    return () => document.removeEventListener("keydown", onKey);
+  }, [onPrev, onNext]);
 
   const copyCorrected = async () => {
     if (!record) return;
@@ -62,19 +94,31 @@ export function DetailPanel({ result, onClose, onOpenFinder }: Props) {
   const rel = result.relevance;
 
   return (
-    <aside className="detail" aria-label={`Citation ${result.index} detail`}>
-      <div className="detail-head">
+    <div className="detail">
+      <header className="detail-head">
         <div>
-          <span className="muted small">Citation #{result.index}</span>
+          <span className="muted small">
+            Citation #{result.index}
+            {position && position.total > 1 && <> · {position.current} of {position.total}</>}
+          </span>
           <div className="detail-verdict">
             <VerdictBadge verdict={result.verdict} score={result.confidence} />
             <RetractionBadge info={result.retraction} />
             {result.confidence != null && <span className="muted small">confidence {result.confidence}/100</span>}
           </div>
         </div>
-        <button className="icon-btn" onClick={onClose} aria-label="Close detail panel">×</button>
-      </div>
+        <div className="detail-nav">
+          {(onPrev || onNext) && (
+            <>
+              <button className="icon-btn" onClick={onPrev} disabled={!onPrev} aria-label="Previous citation" title="Previous citation (←)">‹</button>
+              <button className="icon-btn" onClick={onNext} disabled={!onNext} aria-label="Next citation" title="Next citation (→)">›</button>
+            </>
+          )}
+          <button className="icon-btn" onClick={onClose} aria-label="Close details" title="Close (Esc)">×</button>
+        </div>
+      </header>
 
+      <div className="detail-body" ref={bodyRef}>
       <blockquote className="raw">{result.raw}</blockquote>
       {result.parsed.kind && result.parsed.kind !== "unknown" && (
         <div className="muted small">
@@ -242,6 +286,7 @@ export function DetailPanel({ result, onClose, onOpenFinder }: Props) {
         </div>
         {record && result.verdict === "verified" && <p className="muted small">{VERDICT_LABEL.verified}: the corrected citation is built from the source record, not from your original text.</p>}
       </section>
-    </aside>
+      </div>
+    </div>
   );
 }

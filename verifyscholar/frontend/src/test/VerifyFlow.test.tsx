@@ -71,7 +71,7 @@ describe("verify flow (Mode A)", () => {
     expect(bodyRows()).toHaveLength(4);
   });
 
-  it("opens the detail panel with a field-by-field comparison and copies a corrected citation", async () => {
+  it("opens the detail modal with a field-by-field comparison and copies a corrected citation", async () => {
     const { calls } = setup();
     const user = userEvent.setup();
     render(<App />);
@@ -80,7 +80,7 @@ describe("verify flow (Mode A)", () => {
     const suspiciousRow = screen.getAllByRole("row").find((r) => r.textContent?.includes("Raw citation text number 2"))!;
     await user.click(within(suspiciousRow).getByRole("button", { name: "View detail" }));
 
-    const panel = screen.getByRole("complementary", { name: "Citation 2 detail" });
+    const panel = screen.getByRole("dialog", { name: "Citation 2 detail" });
     expect(within(panel).getByText(/your citation differs from it/)).toBeInTheDocument();
     const year = within(panel).getByText("Year").closest("tr")!;
     expect(year).toHaveTextContent("2018");
@@ -96,8 +96,8 @@ describe("verify flow (Mode A)", () => {
 
     await user.click(within(panel).getByRole("button", { name: "Add to export list" }));
     expect(screen.getByRole("button", { name: "Export list (1)" })).toBeInTheDocument();
-    await user.click(within(panel).getByRole("button", { name: "Close detail panel" }));
-    expect(screen.queryByRole("complementary", { name: "Citation 2 detail" })).not.toBeInTheDocument();
+    await user.click(within(panel).getByRole("button", { name: "Close details" }));
+    expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
   });
 
   it("ghost citations offer 'Find a replacement' and show their flags; no corrected citation is offered", async () => {
@@ -108,7 +108,7 @@ describe("verify flow (Mode A)", () => {
 
     const ghostRow = screen.getAllByRole("row").find((r) => r.textContent?.includes("Raw citation text number 3"))!;
     await user.click(within(ghostRow).getByRole("button", { name: "View detail" }));
-    const panel = screen.getByRole("complementary", { name: "Citation 3 detail" });
+    const panel = screen.getByRole("dialog", { name: "Citation 3 detail" });
     expect(within(panel).getByText(/placeholder/)).toBeInTheDocument();
     expect(within(panel).queryByRole("button", { name: "Copy corrected citation" })).not.toBeInTheDocument();
     expect(within(panel).getByText(/No matching record was found/)).toBeInTheDocument();
@@ -117,8 +117,63 @@ describe("verify flow (Mode A)", () => {
     expect(within(panel).getByText("Layer Normalization in Transformers")).toBeInTheDocument();
     expect(within(panel).getByText(/not accepted: generic title and no author, journal or year in common/)).toBeInTheDocument();
     await user.click(within(panel).getByRole("button", { name: "Find a replacement" }));
-    // jumps to the Paper Finder tab in search mode with the title pre-filled
+    // jumps to the Paper Finder tab in search mode with the title pre-filled, and the modal does not stay on top
     expect(screen.getByRole("button", { name: "Paper Finder" })).toHaveClass("active");
+    expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+  });
+
+  it("closes the detail modal with Escape or a backdrop click and gives focus back to the row", async () => {
+    setup();
+    const user = userEvent.setup();
+    render(<App />);
+    await runVerification(user);
+
+    const row = screen.getAllByRole("row").find((r) => r.textContent?.includes("Raw citation text number 2"))!;
+    const viewDetail = within(row).getByRole("button", { name: "View detail" });
+    await user.click(viewDetail);
+    const dialog = screen.getByRole("dialog", { name: "Citation 2 detail" });
+    expect(dialog).toHaveAttribute("aria-modal", "true");
+    expect(document.body.style.overflow).toBe("hidden");
+
+    await user.keyboard("{Escape}");
+    expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+    expect(document.body.style.overflow).toBe("");
+    expect(viewDetail).toHaveFocus();
+
+    await user.click(viewDetail);
+    // a click inside the card keeps it open; a click on the backdrop closes it
+    await user.click(within(screen.getByRole("dialog")).getByText(/your citation differs from it/));
+    expect(screen.getByRole("dialog")).toBeInTheDocument();
+    await user.click(document.querySelector(".modal-backdrop") as HTMLElement);
+    expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+  });
+
+  it("steps through citations in table order with the arrow buttons and keys", async () => {
+    setup();
+    const user = userEvent.setup();
+    render(<App />);
+    await runVerification(user);
+
+    // default sort is "reds first": the Ghost (#3) comes first, then the Suspicious (#2)
+    const first = screen.getAllByRole("row")[1];
+    await user.click(within(first).getByRole("button", { name: "View detail" }));
+    let dialog = screen.getByRole("dialog", { name: "Citation 3 detail" });
+    expect(dialog).toHaveTextContent("1 of 4");
+    expect(within(dialog).getByRole("button", { name: "Previous citation" })).toBeDisabled();
+
+    await user.click(within(dialog).getByRole("button", { name: "Next citation" }));
+    dialog = screen.getByRole("dialog", { name: "Citation 2 detail" });
+    expect(dialog).toHaveTextContent("2 of 4");
+
+    await user.keyboard("{ArrowRight}");
+    expect(screen.getByRole("dialog")).toHaveTextContent("3 of 4");
+    await user.keyboard("{ArrowLeft}");
+    expect(screen.getByRole("dialog", { name: "Citation 2 detail" })).toBeInTheDocument();
+
+    // closing returns focus to the row being shown now, not the one first opened
+    await user.keyboard("{Escape}");
+    const row2 = screen.getAllByRole("row").find((r) => r.textContent?.includes("Raw citation text number 2"))!;
+    expect(within(row2).getByRole("button", { name: "View detail" })).toHaveFocus();
   });
 
   it("shows an error when the job fails", async () => {
