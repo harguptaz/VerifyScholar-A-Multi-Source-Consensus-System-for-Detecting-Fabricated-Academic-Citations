@@ -2,7 +2,7 @@ import { useState } from "react";
 import { api } from "../api";
 import type { SourcesHealthResponse } from "../types";
 
-const NAMES: Record<string, string> = { crossref: "CrossRef", openalex: "OpenAlex", doaj: "DOAJ" };
+const NAMES: Record<string, string> = { crossref: "CrossRef", openalex: "OpenAlex", doaj: "DOAJ", dblp: "DBLP", datacite: "DataCite", openlibrary: "Open Library" };
 
 /** On-demand test of the backend's connection to the data sources, with the reason when one fails. */
 export function ConnectionCheck() {

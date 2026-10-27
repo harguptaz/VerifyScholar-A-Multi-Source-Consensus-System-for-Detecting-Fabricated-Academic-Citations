@@ -131,7 +131,7 @@ export function DetailPanel({ result, onClose, onOpenFinder }: Props) {
             </table>
           </>
         ) : (
-          <p className="muted">{result.verdict === "inconclusive" ? "No comparison was possible; see the explanation above." : "No matching record was found in CrossRef or OpenAlex, so there is nothing to compare against."}</p>
+          <p className="muted">{result.verdict === "inconclusive" ? "No comparison was possible; see the explanation above." : "No matching record was found in any of the sources that were checked, so there is nothing to compare against."}</p>
         )}
         {mismatchedDoi && (
           <div className="notice warn">

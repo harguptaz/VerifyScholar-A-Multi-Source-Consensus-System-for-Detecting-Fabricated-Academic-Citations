@@ -253,7 +253,7 @@ export interface SourceHealth {
   http_status?: number | null;
 }
 
-export type SourcesHealthResponse = Record<"crossref" | "openalex" | "doaj", SourceHealth>;
+export type SourcesHealthResponse = Record<string, SourceHealth>; // crossref, openalex, doaj and whichever of dblp, datacite, openlibrary are enabled
 
 export interface HealthResponse {
   status: string;

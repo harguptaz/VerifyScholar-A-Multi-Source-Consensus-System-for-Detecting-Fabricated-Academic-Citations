@@ -72,7 +72,7 @@ function Shell() {
       </main>
 
       <footer className="footer">
-        Verdicts are advisory. A missing record can mean a paper is not indexed, not only that it is fabricated. Data from CrossRef, OpenAlex and DOAJ.
+        Verdicts are advisory. A missing record can mean a paper is not indexed, not only that it is fabricated. Data from CrossRef, OpenAlex, DOAJ, DBLP, DataCite and Open Library.
       </footer>
     </div>
   );

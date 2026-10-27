@@ -16,7 +16,7 @@ export const DOI_STATUS_LABEL: Record<CitationResult["doi_status"], string> = {
 };
 
 export const JOURNAL_STATUS_LABEL: Record<CitationResult["journal_status"], string> = {
-  verified_in_index: "Verified in CrossRef / OpenAlex",
+  verified_in_index: "Verified in a bibliographic source",
   found_in_doaj: "Found in DOAJ only",
   not_found: "Not found",
   not_provided: "Not provided",

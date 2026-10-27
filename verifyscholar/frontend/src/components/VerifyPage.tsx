@@ -122,6 +122,7 @@ export function VerifyPage({ onOpenFinder, onJobDone }: Props) {
             <li><strong>CrossRef</strong>: the DOI registration agency; resolves DOIs and searches by title.</li>
             <li><strong>OpenAlex</strong>: an independent index that also covers preprints and works CrossRef misses.</li>
             <li><strong>DOAJ</strong>: confirms the journal exists (open-access journals only; a miss is never held against a citation).</li>
+            <li><strong>DBLP, DataCite and Open Library</strong>: asked only when the sources above leave a citation unsettled. DBLP covers computer-science papers, DataCite covers arXiv, Zenodo and dataset DOIs, and Open Library covers books. They can confirm that a work exists; a miss there is never held against a citation.</li>
           </ul>
           <p>You get a verdict for each citation:</p>
           <ul className="verdicts">
