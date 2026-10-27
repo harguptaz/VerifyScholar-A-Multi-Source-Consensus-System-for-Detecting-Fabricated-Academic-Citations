@@ -1,5 +1,6 @@
 import { useEffect, useRef, type ReactNode } from "react";
 import { createPortal } from "react-dom";
+import { trapTab } from "../a11y";
 
 interface Props {
   /** Accessible name announced by screen readers when the dialog opens. */
@@ -7,8 +8,6 @@ interface Props {
   onClose: () => void;
   children: ReactNode;
 }
-
-const FOCUSABLE = 'a[href], button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), summary, [tabindex]:not([tabindex="-1"])';
 
 /**
  * A centered modal card over a blurred, dimmed backdrop.
@@ -49,30 +48,7 @@ export function Modal({ label, onClose, children }: Props) {
         closeRef.current();
         return;
       }
-      if (e.key !== "Tab") return;
-      // skip controls hidden inside a collapsed <details> (its <summary> stays reachable)
-      const items = Array.from(card.querySelectorAll<HTMLElement>(FOCUSABLE)).filter((el) => {
-        const closed = el.closest("details:not([open])");
-        return !closed || (el.tagName === "SUMMARY" && el.parentElement === closed);
-      });
-      if (items.length === 0) {
-        e.preventDefault();
-        card.focus();
-        return;
-      }
-      const first = items[0];
-      const last = items[items.length - 1];
-      const active = document.activeElement;
-      if (!card.contains(active)) {
-        e.preventDefault();
-        first.focus();
-      } else if (e.shiftKey && (active === first || active === card)) {
-        e.preventDefault();
-        last.focus();
-      } else if (!e.shiftKey && active === last) {
-        e.preventDefault();
-        first.focus();
-      }
+      trapTab(e, card);
     };
     document.addEventListener("keydown", onKey);
     return () => document.removeEventListener("keydown", onKey);

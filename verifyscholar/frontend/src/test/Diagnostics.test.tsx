@@ -38,6 +38,8 @@ describe("diagnostics and feedback", () => {
     ]);
     const user = userEvent.setup();
     render(<App />);
+    // the connection test lives in the "How it works" sidebar
+    await user.click(screen.getByRole("button", { name: /How it works/ }));
     await user.click(screen.getByRole("button", { name: "Test connection to data sources" }));
     await screen.findByText(/check OPENALEX_API_KEY/);
     expect(screen.getByText(/✗ OpenAlex/)).toBeInTheDocument();

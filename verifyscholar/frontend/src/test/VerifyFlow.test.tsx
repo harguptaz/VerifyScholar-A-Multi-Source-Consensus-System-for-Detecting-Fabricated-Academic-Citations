@@ -176,6 +176,23 @@ describe("verify flow (Mode A)", () => {
     expect(within(row2).getByRole("button", { name: "View detail" })).toHaveFocus();
   });
 
+  it("Escape closes only the detail modal when the help sidebar is open behind it", async () => {
+    setup();
+    const user = userEvent.setup();
+    render(<App />);
+    await runVerification(user);
+
+    await user.click(screen.getByRole("button", { name: /How it works/ }));
+    const row = screen.getAllByRole("row").find((r) => r.textContent?.includes("Raw citation text number 2"))!;
+    await user.click(within(row).getByRole("button", { name: "View detail" }));
+    expect(screen.getByRole("dialog", { name: "Citation 2 detail" })).toBeInTheDocument();
+
+    await user.keyboard("?"); // ignored while the modal is open
+    await user.keyboard("{Escape}");
+    expect(screen.queryByRole("dialog", { name: "Citation 2 detail" })).not.toBeInTheDocument();
+    expect(screen.getByRole("dialog", { name: "How it works" })).toBeInTheDocument();
+  });
+
   it("shows an error when the job fails", async () => {
     mockFetch([
       { method: "GET", path: "/health", handler: () => health },

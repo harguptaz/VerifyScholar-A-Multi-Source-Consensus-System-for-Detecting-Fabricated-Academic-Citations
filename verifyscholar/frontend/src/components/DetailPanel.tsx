@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
+import { isTypingTarget } from "../a11y";
 import { api } from "../api";
 import { DOI_STATUS_LABEL, FIELD_LABEL, JOURNAL_STATUS_LABEL, RELEVANCE_LABEL, VERDICT_LABEL, pct } from "../format";
 import { useExportList } from "../exportList";
@@ -16,11 +17,6 @@ interface Props {
   onNext?: () => void;
 }
 
-/** Arrow keys should not switch citations while the user is typing or choosing from a menu. */
-function isTypingTarget(t: EventTarget | null): boolean {
-  if (!(t instanceof HTMLElement)) return false;
-  return t.isContentEditable || ["INPUT", "SELECT", "TEXTAREA"].includes(t.tagName);
-}
 
 const KIND_TEXT: Record<string, string> = { article: "an article", preprint: "a preprint", conference: "a conference paper", book: "a book" };
 const FIELD_ORDER = ["title", "authors", "journal", "year", "volume", "pages", "doi"];

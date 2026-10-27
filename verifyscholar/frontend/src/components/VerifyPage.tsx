@@ -1,7 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { api } from "../api";
 import type { JobResult, JobStatus } from "../types";
-import { ConnectionCheck } from "./ConnectionCheck";
 import { JobProgress } from "./JobProgress";
 import { Report } from "./Report";
 
@@ -77,7 +76,7 @@ export function VerifyPage({ onOpenFinder, onJobDone }: Props) {
 
   return (
     <div>
-      <div className="two-col">
+      <div className="input-col">
         <div className="card">
           <div className="tabs">
             <button className={mode === "paste" ? "tab active" : "tab"} onClick={() => setMode("paste")}>Paste citations</button>
@@ -113,26 +112,6 @@ export function VerifyPage({ onOpenFinder, onJobDone }: Props) {
 
           <button className="btn primary big" onClick={submit} disabled={!canSubmit}>{running ? "Verifying…" : "Verify Citations"}</button>
           {error && <div className="notice error">{error}</div>}
-        </div>
-
-        <div className="card info-card">
-          <h3>How it works</h3>
-          <p>VerifyScholar checks each citation against authoritative bibliographic data instead of trusting how it looks.</p>
-          <ul>
-            <li><strong>CrossRef</strong>: the DOI registration agency; resolves DOIs and searches by title.</li>
-            <li><strong>OpenAlex</strong>: an independent index that also covers preprints and works CrossRef misses.</li>
-            <li><strong>DOAJ</strong>: confirms the journal exists (open-access journals only; a miss is never held against a citation).</li>
-            <li><strong>DBLP, DataCite and Open Library</strong>: asked only when the sources above leave a citation unsettled. DBLP covers computer-science papers, DataCite covers arXiv, Zenodo and dataset DOIs, and Open Library covers books. They can confirm that a work exists; a miss there is never held against a citation.</li>
-          </ul>
-          <p>You get a verdict for each citation:</p>
-          <ul className="verdicts">
-            <li><span className="badge verdict-verified">Verified</span> the paper exists and the details match.</li>
-            <li><span className="badge verdict-suspicious">Suspicious</span> a real paper was found but details differ.</li>
-            <li><span className="badge verdict-ghost">Ghost</span> no matching paper was found.</li>
-          </ul>
-          <p className="muted small">Works on any citation style. Every lookup is recorded in a tamper-evident transparency log you can export.</p>
-          <h4>Not getting results?</h4>
-          <ConnectionCheck />
         </div>
       </div>
 
