@@ -119,7 +119,7 @@ export function doneJob(id = "job1"): JobStatus {
 export function card(over: Partial<PaperCardData> = {}): PaperCardData {
   const rec = over.record ?? record();
   return {
-    record: rec, verdict: "verified", confidence: 100, reason: "Matched", sources: [],
+    record: rec,
     access: rec.oa_url
       ? { level: "open_access", open_access_url: rec.oa_url, publisher_url: rec.doi_url, note: "A free, legal full-text copy is available (open-access status: gold)." }
       : { level: "publisher_page", publisher_url: rec.doi_url, note: "No free full text was found. Open the publisher page; your institution's library login may give you access." },

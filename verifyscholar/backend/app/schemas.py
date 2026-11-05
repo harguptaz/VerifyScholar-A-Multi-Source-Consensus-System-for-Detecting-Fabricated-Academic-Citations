@@ -259,11 +259,9 @@ class PaperAccess(BaseModel):
 
 
 class PaperCard(BaseModel):
+    """A paper opened in Paper Finder. It carries no verdict or confidence: a paper retrieved from the sources exists by definition."""
+
     record: PaperRecord
-    verdict: Verdict = "inconclusive"
-    confidence: Optional[int] = None
-    reason: str = ""
-    sources: List[SourceResult] = Field(default_factory=list)
     access: PaperAccess = Field(default_factory=PaperAccess)
     retraction: RetractionInfo = Field(default_factory=RetractionInfo)
 

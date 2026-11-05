@@ -186,10 +186,6 @@ export interface PaperAccess {
 
 export interface PaperCardData {
   record: PaperRecord;
-  verdict: Verdict;
-  confidence: number | null;
-  reason: string;
-  sources: SourceResult[];
   access: PaperAccess;
   retraction: RetractionInfo;
 }

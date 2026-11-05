@@ -3,7 +3,7 @@ import { api } from "../api";
 import { authorsLine, venueLine } from "../format";
 import { useExportList } from "../exportList";
 import type { NetworkResponse, PaperCardData, PaperRecord, Style } from "../types";
-import { OABadge, RetractionBadge, ScoreBar, VerdictBadge } from "./Badges";
+import { OABadge, RetractionBadge } from "./Badges";
 import { PaperList } from "./PaperList";
 
 type Kind = "references" | "cited-by" | "related";
@@ -89,13 +89,11 @@ export function PaperCard({ data, onOpen, onBack }: Props) {
       <div>{authorsLine(r.authors, 8)}</div>
       <div className="muted">{venueLine(r)}</div>
       <div className="badge-stack spaced">
-        <VerdictBadge verdict={data.verdict} score={data.confidence} />
         <RetractionBadge info={data.retraction} />
         <OABadge record={r} />
         {r.cited_by_count != null && <span className="badge neutral">Cited by {r.cited_by_count.toLocaleString()}</span>}
         {r.doi && <span className="badge neutral mono">{r.doi}</span>}
       </div>
-      {data.confidence != null && <div className="small muted">Confidence <ScoreBar score={data.confidence} /></div>}
 
       {data.retraction.notices.length > 0 && (
         <div className="notice warn">
@@ -103,7 +101,6 @@ export function PaperCard({ data, onOpen, onBack }: Props) {
           {data.retraction.notices.some((n) => n.doi) && <> · {data.retraction.notices.filter((n) => n.doi).map((n, i) => <a key={i} href={`https://doi.org/${n.doi}`} target="_blank" rel="noreferrer">notice</a>)}</>}
         </div>
       )}
-      {data.verdict === "ghost" && <div className="notice warn">{data.reason}</div>}
 
       <div className={`access access-${access.level}`}>
         <div className="access-title">{access.level === "open_access" ? "Read it now" : access.level === "publisher_page" ? "Get the paper" : "No link available"}</div>

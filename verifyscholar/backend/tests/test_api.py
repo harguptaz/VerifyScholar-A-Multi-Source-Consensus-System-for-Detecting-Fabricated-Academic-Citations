@@ -145,13 +145,28 @@ def test_paper_finder_doi_link_and_title(client, web):
     web.oa_search = [web.openalex[DEEP_LEARNING_DOI]]
     for q in (DEEP_LEARNING_DOI, f"https://doi.org/{DEEP_LEARNING_DOI}"):
         body = client.get("/papers/lookup", params={"id": q}).json()
-        assert body["query_type"] == "doi" and body["paper"]["verdict"] == "verified"
+        assert body["query_type"] == "doi" and body["paper"]["record"]["doi"] == DEEP_LEARNING_DOI
+        # a paper retrieved from the sources is not a citation being checked: no verdict, confidence or verification evidence
+        assert not {"verdict", "confidence", "reason", "sources"} & set(body["paper"])
         assert body["paper"]["access"]["level"] == "open_access" and body["paper"]["access"]["open_access_url"] == "https://example.org/dl.pdf"
         assert body["paper"]["record"]["abstract"].startswith("Deep learning allows")
     body = client.get("/papers/lookup", params={"id": "10.9999/does-not-exist"}).json()
-    assert body["paper"]["verdict"] == "ghost" and "No record" in body["message"]
+    assert body["paper"] is None and "No record" in body["message"]
     body = client.get("/papers/lookup", params={"id": "Deep learning LeCun"}).json()
     assert body["query_type"] == "title" and len(body["candidates"]) == 1 and body["paper"] is None
+
+
+def test_paper_finder_shows_the_record_even_when_the_dois_details_look_odd(client, web):
+    # A DOI whose only trace is one source still opens as a paper; the card never turns into a "Ghost".
+    web.crossref["10.5555/lonely"] = crossref_item("10.5555/lonely", "A paper only CrossRef knows", [("Doe", "Jane")], "Some Journal", 2021)
+    body = client.get("/papers/lookup", params={"id": "10.5555/lonely"}).json()
+    assert body["paper"]["record"]["title"] == "A paper only CrossRef knows" and "verdict" not in body["paper"]
+
+
+def test_paper_finder_says_so_when_the_sources_cannot_be_reached(client, web):
+    web.down = {"api.crossref.org", "api.openalex.org"}
+    body = client.get("/papers/lookup", params={"id": "10.5555/anything"}).json()
+    assert body["paper"] is None and "could not be reached" in body["message"]
 
 
 def test_paywalled_paper_gets_publisher_page_access(client, web):

@@ -11,7 +11,7 @@ async function openFinder(user: ReturnType<typeof userEvent.setup>) {
 }
 
 describe("Paper Finder (Mode D)", () => {
-  it("looks up a DOI and shows the access ladder, abstract and verdict", async () => {
+  it("looks up a DOI and shows the access ladder and abstract, but no verdict or confidence", async () => {
     const { calls } = mockFetch([
       { method: "GET", path: "/health", handler: () => health },
       { method: "GET", path: "/papers/lookup", handler: () => ({ query: "x", query_type: "doi", paper: card(), candidates: [], message: "" }) },
@@ -28,7 +28,11 @@ describe("Paper Finder (Mode D)", () => {
     expect(screen.getByRole("link", { name: "Free full text" })).toHaveAttribute("href", "https://example.org/dl.pdf");
     expect(screen.getByText(/never hosts or proxies paywalled PDFs/)).toBeInTheDocument();
     expect(screen.getByText(/Deep learning allows computational models/)).toBeInTheDocument();
-    expect(screen.getAllByText("Verified").length).toBeGreaterThan(0);
+    // a paper retrieved from the sources exists by definition, so nothing on the card says it was "verified"
+    const paper = within(screen.getByRole("heading", { name: "Deep learning" }).closest("article") as HTMLElement);
+    expect(paper.queryByText(/Verified|Suspicious|Ghost|Inconclusive/)).not.toBeInTheDocument();
+    expect(paper.queryByText(/Confidence/)).not.toBeInTheDocument();
+    expect(paper.getByText("Found in")).toBeInTheDocument();
   });
 
   it("paywalled papers get the publisher page and a library-login note, never a fake full-text link", async () => {

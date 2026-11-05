@@ -6,9 +6,7 @@ import re
 from typing import List, Optional, Tuple
 
 from ..config import Settings, get_settings
-from ..schemas import (
-    LookupResponse, NetworkResponse, PaperAccess, PaperCard, ParsedCitation, PaperRecord, RetractionInfo, SearchResponse, SourceResult,
-)
+from ..schemas import LookupResponse, NetworkResponse, PaperAccess, PaperCard, ParsedCitation, PaperRecord, SearchResponse
 from ..utils.text import OPENALEX_ID_RE, arxiv_to_doi, extract_doi, normalize, similarity
 from .adapters.crossref import CrossRefAdapter
 from .adapters.openalex import OpenAlexAdapter, short_id
@@ -49,17 +47,26 @@ class PaperService:
         self.settings = settings or get_settings()
 
     # ------------------------------------------------------------------ lookup
-    async def _card_for_doi(self, doi: str) -> PaperCard:
+    @staticmethod
+    def _card(record: PaperRecord, retraction=None) -> PaperCard:
+        return PaperCard(record=record, access=build_access(record), retraction=retraction or record.retraction)
+
+    async def _card_for_doi(self, doi: str) -> Tuple[Optional[PaperCard], str]:
+        """Fetch the record for a DOI. The verifier is used only to gather and merge the records (and the retraction notice);
+        its verdict is ignored, because a paper opened here is not a citation being checked."""
         parsed = ParsedCitation(index=1, raw=doi, doi=doi, parse_method="identifier")
         r = await self.engine.verify_citation(parsed, lookup_only=True)
-        record = r.record or PaperRecord(doi=doi)
-        return PaperCard(record=record, verdict=r.verdict, confidence=r.confidence, reason=r.reason, sources=r.sources, access=build_access(record), retraction=r.retraction)
+        record = r.record or next((s.record for s in r.sources if s.kind == "record" and s.record is not None), None)
+        if record is not None:
+            return self._card(record, r.retraction), ""
+        if r.doi_status == "unavailable":
+            return None, "CrossRef and OpenAlex could not be reached just now, so this DOI could not be looked up. Please try again in a moment."
+        return None, "No record was found for this DOI in CrossRef or OpenAlex. Check the DOI for typing mistakes."
 
     async def lookup(self, q: str) -> LookupResponse:
         kind, value = classify(q)
         if kind == "doi":
-            card = await self._card_for_doi(value)
-            msg = "" if card.verdict != "ghost" else "No record was found for this DOI."
+            card, msg = await self._card_for_doi(value)
             return LookupResponse(query=q, query_type="doi", paper=card, message=msg)
 
         if kind == "openalex_id":
@@ -70,11 +77,10 @@ class PaperService:
 
             rec = work_to_record(work)
             if rec.doi:
-                card = await self._card_for_doi(rec.doi)
-                return LookupResponse(query=q, query_type="openalex_id", paper=card)
-            src = SourceResult(source="openalex", label=self.openalex.label, status="match", method="doi", score=100, record=rec)
-            card = PaperCard(record=rec, verdict="verified", confidence=100, reason="Found in OpenAlex (no DOI on record).", sources=[src], access=build_access(rec), retraction=rec.retraction)
-            return LookupResponse(query=q, query_type="openalex_id", paper=card)
+                card, _ = await self._card_for_doi(rec.doi)  # CrossRef adds abstract, licence and retraction details
+                if card is not None:
+                    return LookupResponse(query=q, query_type="openalex_id", paper=card)
+            return LookupResponse(query=q, query_type="openalex_id", paper=self._card(rec))
 
         # free text -> candidate list
         resp = await self.search(q, per_page=8)
