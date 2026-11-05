@@ -69,10 +69,21 @@ export interface CandidateInfo {
   note: string;
 }
 
+/** A researcher's public ORCID record. */
+export interface Researcher {
+  orcid: string;
+  given: string;
+  family: string;
+  name: string;
+  other_names: string[];
+  url: string;
+  matched: boolean; // one of the cited authors
+}
+
 export interface SourceResult {
   source: string;
   label: string;
-  kind: "record" | "journal";
+  kind: "record" | "journal" | "author"; // author: ORCID's authorship check, which can only add confidence
   status: "match" | "partial" | "no_record" | "unavailable" | "skipped";
   method?: "doi" | "search" | "issn" | "title" | null;
   score?: number | null;
@@ -80,6 +91,7 @@ export interface SourceResult {
   record?: PaperRecord | null;
   doi_resolves_to?: PaperRecord | null;
   candidates?: CandidateInfo[];
+  researchers?: Researcher[];
   note?: string | null;
 }
 
@@ -249,7 +261,7 @@ export interface SourceHealth {
   http_status?: number | null;
 }
 
-export type SourcesHealthResponse = Record<string, SourceHealth>; // crossref, openalex, doaj and whichever of dblp, datacite, openlibrary are enabled
+export type SourcesHealthResponse = Record<string, SourceHealth>; // crossref, openalex, doaj, whichever of dblp, datacite, openlibrary are enabled, and orcid when configured
 
 export interface HealthResponse {
   status: string;
@@ -260,6 +272,7 @@ export interface HealthResponse {
   embedding_backend_setting: string;
   openalex_api_key_set: boolean;
   contact_email_set: boolean;
+  orcid_configured?: boolean;
 }
 
 export interface SearchParams {

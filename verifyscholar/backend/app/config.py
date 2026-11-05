@@ -26,6 +26,13 @@ class Settings(BaseSettings):
     enable_dblp: bool = True
     enable_datacite: bool = True
     enable_openlibrary: bool = True
+    # ORCID: confirms that the cited authors list the paper on their ORCID record. Needs a free client ID and secret
+    # (https://orcid.org/developer-tools). Without them it is simply not used. It can only raise confidence, never lower it.
+    orcid_client_id: str = ""
+    orcid_client_secret: str = ""
+    enable_orcid: bool = True
+    orcid_base_url: str = "https://pub.orcid.org/v3.0"
+    orcid_token_url: str = "https://orcid.org/oauth/token"
     doi_resolver_url: str = "https://doi.org"
     grobid_url: str = "http://localhost:8070"
     grobid_timeout_seconds: int = 180
@@ -49,6 +56,7 @@ class Settings(BaseSettings):
     dblp_max_concurrent_requests: int = 2  # DBLP answers HTTP 429 to bursts
     datacite_max_concurrent_requests: int = 4
     openlibrary_max_concurrent_requests: int = 2
+    orcid_max_concurrent_requests: int = 4
     # citations whose source did not answer are retried once at the end of a job
     retry_unavailable: bool = True
     retry_pause_seconds: float = 3.0
@@ -71,6 +79,7 @@ class Settings(BaseSettings):
     penalty_cap: int = 40
     doaj_bonus: int = 5
     agreement_bonus: int = 5
+    orcid_bonus: int = 5  # a cited author lists the paper on their ORCID record
     # a real journal in which CrossRef holds this few articles for the cited year is "thinly indexed":
     # a paper missing from it is weak evidence, so the citation is "Inconclusive (not indexed)" instead of "Ghost"
     not_indexed_max_year_works: int = 25
@@ -85,6 +94,10 @@ class Settings(BaseSettings):
 
     # ---- web ---------------------------------------------------------------------------
     cors_origins: str = "http://localhost:5173,http://localhost:3000"
+
+    @property
+    def orcid_configured(self) -> bool:
+        return self.enable_orcid and bool(self.orcid_client_id.strip() and self.orcid_client_secret.strip())
 
     @property
     def cors_origin_list(self) -> List[str]:

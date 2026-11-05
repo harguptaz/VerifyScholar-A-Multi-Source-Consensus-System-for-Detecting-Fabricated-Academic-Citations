@@ -113,10 +113,22 @@ class CandidateInfo(BaseModel):
     note: str = ""
 
 
+class Researcher(BaseModel):
+    """A researcher's public ORCID record (from ORCID's expanded search)."""
+
+    orcid: str
+    given: str = ""
+    family: str = ""
+    name: str = ""  # credit name, or given + family
+    other_names: List[str] = Field(default_factory=list)
+    url: str = ""
+    matched: bool = False  # True when this person is one of the cited authors
+
+
 class SourceResult(BaseModel):
-    source: str  # crossref | openalex | doaj
+    source: str  # crossref | openalex | doaj | dblp | datacite | openlibrary | orcid
     label: str  # display name
-    kind: Literal["record", "journal"] = "record"
+    kind: Literal["record", "journal", "author"] = "record"  # author: ORCID's authorship check, which can only add confidence
     status: Literal["match", "partial", "no_record", "unavailable", "skipped"] = "skipped"
     method: Optional[Literal["doi", "search", "issn", "title"]] = None
     score: Optional[int] = None  # 0-100, None when not applicable / unavailable
@@ -124,6 +136,7 @@ class SourceResult(BaseModel):
     record: Optional[PaperRecord] = None
     doi_resolves_to: Optional[PaperRecord] = None  # set when the cited DOI points to a different paper
     candidates: List[CandidateInfo] = Field(default_factory=list)  # closest search results considered
+    researchers: List[Researcher] = Field(default_factory=list)  # ORCID: the people who list the paper as their own work
     note: Optional[str] = None
 
 

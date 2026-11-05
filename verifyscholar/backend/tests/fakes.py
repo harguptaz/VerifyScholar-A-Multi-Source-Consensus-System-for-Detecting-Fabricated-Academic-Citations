@@ -1,10 +1,10 @@
-"""A fake CrossRef / OpenAlex / DOAJ / DBLP / DataCite / Open Library for tests: canned JSON served through httpx.MockTransport."""
+"""A fake CrossRef / OpenAlex / DOAJ / DBLP / DataCite / Open Library / ORCID for tests: canned JSON served through httpx.MockTransport."""
 from __future__ import annotations
 
 import json
 import re
 from typing import Any, Dict, List
-from urllib.parse import unquote
+from urllib.parse import parse_qs, unquote
 
 import httpx
 
@@ -78,6 +78,15 @@ def openlibrary_doc(title: str, authors: List[str], first_year: int, editions: L
             "publisher": [publisher], "language": ["eng"], "edition_count": len(editions or [1])}
 
 
+def orcid_person(orcid: str, given: str, family: str, credit: str | None = None) -> Dict[str, Any]:
+    """One entry of an ORCID expanded-search answer."""
+    return {"orcid-id": orcid, "given-names": given, "family-names": family, "credit-name": credit, "other-name": [], "email": [], "institution-name": []}
+
+
+ORCID_CLIENT_ID = "APP-TESTCLIENT"
+ORCID_CLIENT_SECRET = "test-secret-value"
+
+
 class FakeWeb:
     def __init__(self) -> None:
         self.crossref: Dict[str, Dict[str, Any]] = {}
@@ -97,6 +106,10 @@ class FakeWeb:
         self.datacite_search: List[Dict[str, Any]] = []
         self.datacite_prefixes: set[str] = set()
         self.openlibrary_docs: List[Dict[str, Any]] = []
+        self.orcid_claims: Dict[str, List[Dict[str, Any]]] = {}  # doi -> researchers who list it (doi-self)
+        self.orcid_people: List[Dict[str, Any]] = []  # researchers found by a name search
+        self.orcid_tokens_issued = 0
+        self.orcid_valid_tokens: set[str] = set()
         self.down: set[str] = set()
         self.fail_first: Dict[str, int] = {}  # host -> number of initial requests that fail with HTTP 503
         self.calls: List[str] = []
@@ -124,6 +137,10 @@ class FakeWeb:
             return self._datacite(path)
         if host == "openlibrary.org":
             return self._openlibrary(path)
+        if host == "orcid.org" and path == "/oauth/token":
+            return self._orcid_token(request)
+        if host == "pub.orcid.org":
+            return self._orcid_search(request, q)
         if host == "doi.org":
             return httpx.Response(404, text="not found")
         return httpx.Response(404, json={})
@@ -217,6 +234,30 @@ class FakeWeb:
         if path == "/search.json":
             return httpx.Response(200, json={"numFound": len(self.openlibrary_docs), "start": 0, "numFoundExact": True, "docs": self.openlibrary_docs})
         return httpx.Response(404, json={})
+
+    def _orcid_token(self, request: httpx.Request) -> httpx.Response:
+        form = {k: v[0] for k, v in parse_qs(request.content.decode()).items()}
+        if request.method != "POST" or form.get("grant_type") != "client_credentials" or form.get("scope") != "/read-public":
+            return httpx.Response(400, json={"error": "invalid_request"})
+        if form.get("client_id") != ORCID_CLIENT_ID or form.get("client_secret") != ORCID_CLIENT_SECRET:
+            return httpx.Response(401, json={"error": "invalid_client"})
+        self.orcid_tokens_issued += 1
+        token = f"token-{self.orcid_tokens_issued}"
+        self.orcid_valid_tokens.add(token)
+        return httpx.Response(200, json={"access_token": token, "token_type": "bearer", "expires_in": 631138518, "scope": "/read-public"})
+
+    def _orcid_search(self, request: httpx.Request, q: Dict[str, str]) -> httpx.Response:
+        auth = request.headers.get("Authorization", "")
+        if not auth.startswith("Bearer ") or auth[7:] not in self.orcid_valid_tokens:
+            return httpx.Response(401, json={"error": "invalid_token"})
+        query = q.get("q", "")
+        m = re.match(r'^doi-self:"(.+)"$', query)
+        if m:
+            people = self.orcid_claims.get(m.group(1).lower(), [])
+        else:
+            fam = re.search(r'family-name:"([^"]+)"', query)
+            people = [p for p in self.orcid_people if fam and p["family-names"].lower() == fam.group(1).lower()]
+        return httpx.Response(200, json={"expanded-result": people or None, "num-found": len(people)})
 
     def _doaj(self, path: str) -> httpx.Response:
         query = path.split("/search/journals/")[-1]

@@ -9,7 +9,7 @@ from ..schemas import FieldMatch, HeuristicFlag, ParsedCitation, PaperRecord, So
 from .adapters.base import SECONDARY_SOURCES
 
 FIELD_WEIGHTS = {"title": 40, "authors": 25, "journal": 15, "year": 10, "doi": 10, "volume": 5, "pages": 5}
-SHORT_NAMES = {"crossref": "CrossRef", "openalex": "OpenAlex", "doaj": "DOAJ", "dblp": "DBLP", "datacite": "DataCite", "openlibrary": "Open Library"}
+SHORT_NAMES = {"crossref": "CrossRef", "openalex": "OpenAlex", "doaj": "DOAJ", "dblp": "DBLP", "datacite": "DataCite", "openlibrary": "Open Library", "orcid": "ORCID"}
 
 # Set by the journal-coverage check when the cited journal is real but CrossRef indexes very little of it.
 # It explains a verdict, it is not a warning, so it never lowers the confidence score.
@@ -131,6 +131,9 @@ def _score(sources: List[SourceResult], flags: List[HeuristicFlag], s: Settings,
     doaj = next((r for r in sources if r.kind == "journal"), None)
     if doaj and doaj.status == "match" and base >= s.suspicious_threshold:
         base = min(100, base + s.doaj_bonus)
+    orcid = next((r for r in sources if r.kind == "author"), None)
+    if orcid and orcid.status == "match" and base >= s.suspicious_threshold:
+        base = min(100, base + s.orcid_bonus)  # positive only: an ORCID miss never lowers the score
     if best is not None:
         base = min(base, source_cap(best))  # bonuses come first, then the cap of the best source is applied
     conf = max(0, min(100, base - penalty_for(flags, s)))
@@ -172,6 +175,18 @@ def _brief(record: PaperRecord) -> str:
     if record.year:
         parts.append(str(record.year))
     return ", ".join(parts)
+
+
+def _orcid_text(sources: List[SourceResult]) -> str:
+    """One sentence on the ORCID authorship check. ORCID only appears in the sources when it found something."""
+    orcid = next((r for r in sources if r.kind == "author"), None)
+    if orcid is None or not orcid.researchers or orcid.status not in ("match", "partial"):
+        return ""
+    if orcid.status == "match":
+        matched = [p.name for p in orcid.researchers if p.matched][:3]
+        verb = "lists" if len(matched) == 1 else "list"
+        return f" ORCID confirms the authorship: {_join_words(matched)} {verb} this paper on their ORCID record."
+    return f" On ORCID, this paper is listed by {_join_words([p.name for p in orcid.researchers][:3])}, none of whom is a cited author."
 
 
 def build_reason(
@@ -232,6 +247,7 @@ def build_reason(
         year = best.fields.get("year") if best else None
         if year is not None and year.status == "partial" and year.submitted and year.found:
             txt += f" The year differs slightly (you cited {year.submitted}, the record says {year.found}); records often carry the date of a later version or re-registration."
+        txt += _orcid_text(sources)
         return (txt + " " + flag_text).strip()
 
     if verdict == "suspicious" and record:
@@ -252,6 +268,7 @@ def build_reason(
         else:
             txt += "."
         txt += " The AI may have cited the right paper with wrong details; review the comparison and use the corrected citation if appropriate."
+        txt += _orcid_text(sources)
         return (txt + " " + flag_text).strip()
 
     # ghost

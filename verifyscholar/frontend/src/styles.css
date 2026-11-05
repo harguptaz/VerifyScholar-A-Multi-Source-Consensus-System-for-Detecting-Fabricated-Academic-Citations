@@ -161,6 +161,7 @@ table.data td { padding: .55rem .7rem; border-bottom: 1px solid #edf0f3; vertica
 .conn-check { margin-top: .4rem; } .conn-list { list-style: none; padding: 0; margin: .6rem 0 0; font-size: .88rem; }
 .conn-list li { margin: .3rem 0; } .conn-ok strong { color: var(--good); } .conn-bad strong { color: var(--bad); }
 
+.orcid-people { list-style: none; padding: 0; margin: .3rem 0 0; } .orcid-people li { margin: .15rem 0; } .mono-id { font-family: ui-monospace, Menlo, monospace; font-size: .75rem; color: var(--muted); }
 .candidates { margin-top: .5rem; font-size: .85rem; } .candidates ul { padding-left: 1.1rem; margin: .3rem 0; } .candidates li { margin: .25rem 0; }
 
 /* help sidebar: beside the page on wide screens (push), over it on narrow ones (overlay) */

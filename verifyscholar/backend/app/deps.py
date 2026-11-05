@@ -9,6 +9,7 @@ from .services.adapters.dblp import DblpAdapter
 from .services.adapters.doaj import DoajAdapter
 from .services.adapters.openalex import OpenAlexAdapter
 from .services.adapters.openlibrary import OpenLibraryAdapter
+from .services.adapters.orcid import OrcidAdapter
 from .services.grobid import grobid_client
 from .services.http_client import http_service
 from .services.verifier import VerificationEngine
@@ -27,6 +28,9 @@ if settings.enable_datacite:
 if settings.enable_openlibrary:
     secondary.append(OpenLibraryAdapter(http_service, settings))
 
-engine = VerificationEngine(crossref, openalex, doaj, settings, secondary=secondary)
+# ORCID authorship check: used only when ORCID_CLIENT_ID and ORCID_CLIENT_SECRET are set. It can only add confidence.
+orcid = OrcidAdapter(http_service, settings) if settings.orcid_configured else None
+
+engine = VerificationEngine(crossref, openalex, doaj, settings, secondary=secondary, orcid=orcid)
 grobid = grobid_client
 http = http_service

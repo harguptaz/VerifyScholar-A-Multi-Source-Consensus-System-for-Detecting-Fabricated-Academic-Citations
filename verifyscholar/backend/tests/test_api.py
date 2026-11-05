@@ -254,3 +254,22 @@ def test_health_sources_reports_each_source_and_the_reason(client, web):
     web.down = {"dblp.org"}
     body = client.get("/health/sources").json()
     assert body["dblp"]["ok"] is False and body["datacite"]["ok"] is True and body["crossref"]["ok"] is True
+
+def test_health_reports_orcid_and_the_connection_test_includes_it_when_configured(client, web, monkeypatch):
+    from app.services.adapters.orcid import OrcidAdapter
+    from tests.fakes import ORCID_CLIENT_ID, ORCID_CLIENT_SECRET
+
+    assert client.get("/health").json()["orcid_configured"] is False
+    assert "orcid" not in client.get("/health/sources").json()  # not configured: not tested, not used
+
+    s = deps.settings.model_copy(update={"orcid_client_id": ORCID_CLIENT_ID, "orcid_client_secret": ORCID_CLIENT_SECRET})
+    monkeypatch.setattr(deps, "settings", s)
+    monkeypatch.setattr(deps, "orcid", OrcidAdapter(http_service, s))
+    assert client.get("/health").json()["orcid_configured"] is True
+    body = client.get("/health/sources").json()
+    assert body["orcid"]["ok"] is True and "access token accepted" in body["orcid"]["detail"]
+
+    bad = s.model_copy(update={"orcid_client_secret": "wrong"})
+    monkeypatch.setattr(deps, "orcid", OrcidAdapter(http_service, bad))
+    body = client.get("/health/sources").json()
+    assert body["orcid"]["ok"] is False and "ORCID_CLIENT_SECRET" in body["orcid"]["detail"]

@@ -144,7 +144,7 @@ function VerifyHelp() {
           <li><strong>40 to 79</strong>: Suspicious</li>
           <li><strong>Below 40</strong>: Ghost</li>
         </ul>
-        <p className="muted small">Two sources agreeing, or the journal being listed in DOAJ, raises the score. Fabrication patterns, such as placeholder DOIs or impossible volume and year combinations, lower it. A field that clearly contradicts the record keeps a citation at Suspicious or below, and a DOI that points to a different paper keeps it below 40.</p>
+        <p className="muted small">Two sources agreeing, the journal being listed in DOAJ, or a cited author listing the paper on ORCID raises the score. Fabrication patterns, such as placeholder DOIs or impossible volume and year combinations, lower it. A field that clearly contradicts the record keeps a citation at Suspicious or below, and a DOI that points to a different paper keeps it below 40.</p>
       </section>
 
       <section>
@@ -154,6 +154,7 @@ function VerifyHelp() {
           <li><strong>OpenAlex</strong>: an independent index that also covers preprints and works CrossRef misses.</li>
           <li><strong>DOAJ</strong>: confirms the journal exists. It lists open-access journals only, so a miss is never held against a citation.</li>
           <li><strong>DBLP, DataCite and Open Library</strong>: asked only when the sources above leave a citation unsettled, for computer-science papers, arXiv and dataset DOIs, and books. A miss there is never held against a citation.</li>
+          <li><strong>ORCID</strong>: checks who wrote the paper, not whether it exists. It appears in a citation's details only when it finds something: the cited authors listing the paper on their ORCID record ("Authors confirmed"), or the paper listed by other people ("Listed by others"). Many researchers don't list every paper, so a miss is never held against a citation.</li>
         </ul>
         <p className="muted small">Every lookup is recorded in a tamper-evident transparency log you can export from the report.</p>
       </section>

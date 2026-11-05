@@ -15,8 +15,9 @@ from .adapters.crossref import CrossRefAdapter, retraction_from_notices
 from .adapters.datacite import DataCiteAdapter
 from .adapters.doaj import DoajAdapter, JournalCheck, normalize_issn
 from .adapters.openalex import OpenAlexAdapter
+from .adapters.orcid import OrcidAdapter, OrcidResponse
 from .http_client import RequestContext
-from .matching import Comparison, accept_candidate, compare, rank_candidates
+from .matching import Comparison, accept_candidate, compare, match_researchers, rank_candidates
 from .merge import collapse_duplicates, merge_all, merge_retraction
 
 ProgressCallback = Callable[[int, int, CitationResult], Awaitable[None]]
@@ -42,12 +43,14 @@ def _journal_check_outcome(check: JournalCheck) -> str:
 class VerificationEngine:
     def __init__(
         self, crossref: CrossRefAdapter, openalex: OpenAlexAdapter, doaj: DoajAdapter, settings: Optional[Settings] = None,
-        secondary: Optional[Sequence[SourceAdapter]] = None,
+        secondary: Optional[Sequence[SourceAdapter]] = None, orcid: Optional[OrcidAdapter] = None,
     ) -> None:
         self.crossref, self.openalex, self.doaj = crossref, openalex, doaj
         self.settings = settings or get_settings()
         # DBLP / DataCite / Open Library: asked only when CrossRef and OpenAlex leave a citation unsettled
         self.secondary: List[SourceAdapter] = list(secondary or [])
+        # ORCID: an authorship check that can only add confidence (None when no client ID / secret is configured)
+        self.orcid = orcid if orcid is not None and orcid.configured else None
 
     # ------------------------------------------------------------------ record sources (CrossRef / OpenAlex)
     async def _record_source(self, adapter: SourceAdapter, parsed: ParsedCitation, ctx: RequestContext, lookup_only: bool) -> SourceResult:
@@ -235,6 +238,49 @@ class VerificationEngine:
             )
         return SourceResult(source="doaj", label=label, kind="journal", status="no_record", score=0, note="Not listed in DOAJ (DOAJ lists open-access journals only)")
 
+    # ------------------------------------------------------------------ ORCID
+    async def _author_source(self, merged: Optional[PaperRecord], parsed: ParsedCitation, ctx: RequestContext) -> Optional[SourceResult]:
+        """Do the cited authors list the matched paper on their ORCID records?
+
+        Only findings are reported: "match" (cited authors confirmed) and "partial" (the paper is listed on ORCID, but by
+        people who are not the cited authors). Anything else (no authors cited, no DOI, nobody lists the paper, ORCID not
+        answering) returns None, so no ORCID row is shown; the queries still go to the transparency log. A miss is never
+        held against a citation.
+        """
+        assert self.orcid is not None
+        label = self.orcid.label
+
+        def result(status: str, note: str, **kw) -> SourceResult:
+            return SourceResult(source="orcid", label=label, kind="author", status=status, note=note, **kw)  # type: ignore[arg-type]
+
+        cited = [a for a in parsed.authors if a.family or a.name]
+        if not cited or merged is None or not merged.doi:
+            return None
+
+        resp: OrcidResponse = await self.orcid.claimants(merged.doi)
+        if resp.status == "unavailable":
+            ctx.log(label, resp.query, _outcome_unavailable(AdapterResponse("unavailable", http_status=resp.http_status, error=resp.error)))
+            return None
+        if resp.status == "not_found":
+            ctx.log(label, resp.query, "No record")
+            return None
+
+        people = resp.people
+        confirmed = match_researchers(cited, people)
+        people.sort(key=lambda p: not p.matched)  # the cited authors first
+        listed = f"{resp.total} researcher{'' if resp.total == 1 else 's'}"
+        if confirmed:
+            ctx.log(label, resp.query, f"Match found: {len(confirmed)} of {len(cited)} cited authors among {listed}")
+            return result(
+                "match", f"{len(confirmed)} of {len(cited)} cited author{'' if len(cited) == 1 else 's'} list this paper on their ORCID record",
+                method="doi", score=100, researchers=people[:10],
+            )
+        ctx.log(label, resp.query, f"No cited author among the {listed} who list this paper")
+        return result(
+            "partial", f"{listed.capitalize()} list{'s' if resp.total == 1 else ''} this paper on ORCID; none of them is a cited author",
+            method="doi", researchers=people[:10],
+        )
+
     # ------------------------------------------------------------------ retraction
     async def _retraction(self, record: PaperRecord, ctx: RequestContext) -> RetractionInfo:
         infos = [record.retraction]
@@ -281,10 +327,17 @@ class VerificationEngine:
                 return await self._side_check(self._retraction(merged, ctx), retraction)
             return retraction
 
-        doaj_res, retraction = await asyncio.gather(
-            self._side_check(self._journal_source(merged, parsed, ctx), doaj_timeout), retraction_part(),
+        async def orcid_part() -> Optional[SourceResult]:
+            if self.orcid is None:
+                return None
+            return await self._side_check(self._author_source(merged, parsed, ctx), None)  # no answer in time: no row
+
+        doaj_res, retraction, orcid_res = await asyncio.gather(
+            self._side_check(self._journal_source(merged, parsed, ctx), doaj_timeout), retraction_part(), orcid_part(),
         )
         sources.append(doaj_res)
+        if orcid_res is not None:
+            sources.append(orcid_res)
         if merged and doaj_res.status in ("match", "no_record"):
             merged.in_doaj = doaj_res.status == "match"
             if "doaj" not in merged.sources and doaj_res.status == "match":
@@ -298,7 +351,9 @@ class VerificationEngine:
             journal_confirmed = parsed.kind == "conference" or bool(anchor_src and anchor_src.fields.get("journal") and anchor_src.fields["journal"].status == "match")
             try:
                 flags += await self._side_check(
-                    heuristics.network_flags(parsed, self.crossref, self.openalex, ctx, doi_not_found, skip_journal=journal_confirmed, datacite=self._datacite()), [],
+                    heuristics.network_flags(
+                        parsed, self.crossref, self.openalex, ctx, doi_not_found, skip_journal=journal_confirmed, datacite=self._datacite(), orcid=self.orcid,
+                    ), [],
                 )
             except Exception:  # pragma: no cover - heuristics must never break verification
                 pass

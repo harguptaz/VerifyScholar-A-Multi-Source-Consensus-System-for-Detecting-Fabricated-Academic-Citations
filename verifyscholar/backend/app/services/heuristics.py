@@ -18,6 +18,7 @@ from ..utils.text import first_int, normalize
 from .adapters.crossref import CrossRefAdapter
 from .adapters.datacite import DataCiteAdapter
 from .adapters.openalex import OpenAlexAdapter
+from .adapters.orcid import OrcidAdapter
 from .http_client import RequestContext
 from .matching import abbreviation_similarity, similarity
 from .parsing import looks_like_template
@@ -90,6 +91,7 @@ async def network_flags(
     doi_not_found: bool,
     skip_journal: bool = False,
     datacite: Optional[DataCiteAdapter] = None,
+    orcid: Optional[OrcidAdapter] = None,
 ) -> List[HeuristicFlag]:
     """Checks that need data from CrossRef / OpenAlex. Failures are swallowed: no data, no flag.
 
@@ -168,8 +170,17 @@ async def network_flags(
             return
         resp = await openalex.author_exists(f"{given} {a.family}")
         ctx.log(openalex.label, resp.query, "Match found" if resp.status == "ok" else ("No record" if resp.status == "not_found" else f"Source unavailable ({resp.error})"))
-        if resp.status == "not_found":
-            flags.append(HeuristicFlag(code="author_not_found", severity="low", message=f"No researcher named {given} {a.family} was found in OpenAlex"))
+        if resp.status != "not_found":
+            return
+        where = "OpenAlex"
+        if orcid is not None:  # a second registry: only flag a researcher that neither of them knows
+            o = await orcid.person_exists(given, a.family)
+            ctx.log(orcid.label, o.query, "Match found" if o.status == "ok" else ("No record" if o.status == "not_found" else f"Source unavailable ({o.error})"))
+            if o.status == "ok":
+                return
+            if o.status == "not_found":
+                where = "OpenAlex or ORCID"
+        flags.append(HeuristicFlag(code="author_not_found", severity="low", message=f"No researcher named {given} {a.family} was found in {where}"))
 
     await asyncio.gather(*(asyncio.create_task(_safe(c())) for c in (prefix_rule, journal_rules, author_rule)))
     return flags

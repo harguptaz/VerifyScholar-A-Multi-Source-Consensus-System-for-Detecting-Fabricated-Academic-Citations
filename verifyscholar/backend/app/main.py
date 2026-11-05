@@ -29,6 +29,8 @@ async def lifespan(app: FastAPI):
         log.warning("CONTACT_EMAIL is not set: CrossRef and OpenAlex asked for a real contact address (polite pool). Set it in .env.")
     if not s.openalex_api_key:
         log.warning("OPENALEX_API_KEY is not set: OpenAlex strongly recommends a free key (https://openalex.org/settings/api).")
+    if not s.orcid_configured:
+        log.info("ORCID is not configured (ORCID_CLIENT_ID / ORCID_CLIENT_SECRET): the ORCID authorship check is skipped.")
     yield
     await http_service.close()
 
@@ -36,7 +38,7 @@ async def lifespan(app: FastAPI):
 app = FastAPI(
     title="VerifyScholar API",
     version="1.0.0",
-    description="Verify AI-generated academic citations against CrossRef, OpenAlex, DOAJ, DBLP, DataCite and Open Library; find papers; check relevance.",
+    description="Verify AI-generated academic citations against CrossRef, OpenAlex, DOAJ, DBLP, DataCite and Open Library, with an ORCID authorship check; find papers; check relevance.",
     lifespan=lifespan,
 )
 app.add_middleware(
@@ -61,12 +63,13 @@ async def health() -> dict:
         "embedding_backend_setting": s.embedding_backend,
         "openalex_api_key_set": bool(s.openalex_api_key),
         "contact_email_set": s.contact_email != "you@example.com",
+        "orcid_configured": s.orcid_configured,
     }
 
 
 @app.get("/health/sources", tags=["system"])
 async def health_sources() -> dict:
-    """Live connectivity test for CrossRef, OpenAlex, DOAJ and the enabled secondary sources (DBLP, DataCite, Open Library).
+    """Live connectivity test for CrossRef, OpenAlex, DOAJ, the enabled secondary sources (DBLP, DataCite, Open Library) and ORCID.
 
     Each source is asked for a record that is known to exist. Responses are not cached. Use it when every
     citation comes back "Inconclusive": it shows whether the backend can reach the internet and whether your
@@ -100,5 +103,11 @@ async def health_sources() -> dict:
         reason = res.error or "no response"
         return name, {"ok": False, "detail": f"Cannot reach the service: {reason}. Check the container's internet access, proxy or firewall.", "http_status": res.http_status}
 
-    results = await asyncio.gather(*(probe(n, u, p) for n, (u, p) in probes.items()))
+    async def orcid_probe() -> tuple[str, dict]:
+        return "orcid", await deps.orcid.check()  # type: ignore[union-attr]
+
+    tasks = [probe(n, u, p) for n, (u, p) in probes.items()]
+    if deps.orcid is not None:  # only when ORCID_CLIENT_ID and ORCID_CLIENT_SECRET are set
+        tasks.append(orcid_probe())
+    results = await asyncio.gather(*tasks)
     return dict(results)

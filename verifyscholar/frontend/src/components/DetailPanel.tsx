@@ -22,6 +22,10 @@ const KIND_TEXT: Record<string, string> = { article: "an article", preprint: "a 
 const FIELD_ORDER = ["title", "authors", "journal", "year", "volume", "pages", "doi"];
 
 function sourceStatusText(s: SourceResult): string {
+  if (s.kind === "author") {
+    // ORCID only appears when it found something: the cited authors, or the people who actually list the paper.
+    return s.status === "match" ? "Authors confirmed" : "Listed by others";
+  }
   switch (s.status) {
     case "match": return "Match";
     case "partial": return "Partial match";
@@ -191,7 +195,19 @@ export function DetailPanel({ result, onClose, onOpenFinder, position, onPrev, o
                 <td>{s.label}</td>
                 <td><span className={`chip src-${s.status}`}>{sourceStatusText(s)}</span></td>
                 <td>{s.kind === "record" ? <ScoreBar score={s.score} /> : <span className="muted">—</span>}</td>
-                <td className="small muted">{s.kind === "journal" ? s.note : s.method ? (s.method === "doi" ? "DOI lookup" : "Title search") : s.note ?? ""}</td>
+                <td className="small muted">
+                  {s.kind !== "record" ? s.note : s.method ? (s.method === "doi" ? "DOI lookup" : "Title search") : s.note ?? ""}
+                  {s.kind === "author" && s.researchers && s.researchers.length > 0 && (
+                    <ul className="orcid-people">
+                      {s.researchers.map((p) => (
+                        <li key={p.orcid}>
+                          {p.matched && <span className="t-verified" title="One of the cited authors">✓ </span>}
+                          <a href={p.url} target="_blank" rel="noreferrer">{p.name || p.orcid}</a> <span className="mono-id">{p.orcid}</span>
+                        </li>
+                      ))}
+                    </ul>
+                  )}
+                </td>
               </tr>
             ))}
           </tbody>
