@@ -261,6 +261,18 @@ def build_reason(
             f"The DOI you cited ({parsed.doi}) resolves to a different paper (“{other.title}”), and no paper with your title and authors "
             "was found."
         )
+    elif record is not None and found_in:
+        # A record WAS found, but it agrees with the citation too little to be the cited paper.
+        diffs = [_fmt_field(k, v) for k, v in (best.fields if best else {}).items() if v.status == "mismatch"]
+        partial = [FIELD_LABELS[k] for k, v in (best.fields if best else {}).items() if v.status == "partial"]
+        txt = f"The closest record found ({_brief(record)}, in {_join_words(found_in)}) agrees with your citation too little to be the paper you cited"
+        if diffs:
+            txt += ": " + "; ".join(diffs) + "."
+        elif partial:
+            txt += f" ({', '.join(partial)} only partly match)."
+        else:
+            txt += "."
+        txt += " Either the citation contains errors or the paper does not exist."
     elif parsed.doi:
         txt = f"The DOI {parsed.doi} could not be found, and no paper matching the cited title and authors was found in {_join_words([_name(r) for r in record_sources], 'or') or 'the sources'}."
     else:
