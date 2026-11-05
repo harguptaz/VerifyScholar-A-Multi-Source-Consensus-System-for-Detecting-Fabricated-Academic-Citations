@@ -80,6 +80,7 @@ class HttpService:
             (st.dblp_base_url, st.dblp_max_concurrent_requests),
             (st.datacite_base_url, st.datacite_max_concurrent_requests),
             (st.openlibrary_base_url, st.openlibrary_max_concurrent_requests),
+            (st.orcid_base_url, st.orcid_max_concurrent_requests),
         ):
             limits[urlparse(base_url).hostname or ""] = cap
         if host not in limits or limits[host] <= 0:

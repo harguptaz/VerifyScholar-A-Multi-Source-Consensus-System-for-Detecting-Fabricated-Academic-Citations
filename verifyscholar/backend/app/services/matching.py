@@ -7,7 +7,7 @@ from typing import Dict, List, Optional, Tuple
 
 from rapidfuzz import fuzz
 
-from ..schemas import FieldMatch, ParsedCitation, PaperRecord
+from ..schemas import Author, FieldMatch, ParsedCitation, PaperRecord, Researcher
 from ..utils.text import arxiv_year, clean_doi, first_int, is_preprint_venue, normalize, partial_in, similarity, surname_key
 
 STOPWORDS = {"of", "and", "the", "on", "in", "for", "a", "an", "&"}
@@ -137,6 +137,43 @@ def author_overlap(cited_families: List[str], record_families: List[str]) -> Tup
     matched = sum(1 for c in cited_families if any(_family_match(c, r) for r in record_families))
     first_ok = any(_family_match(cited_families[0], r) for r in record_families)
     return matched / len(cited_families), first_ok
+
+
+def _initial(name: str) -> str:
+    n = normalize(name)
+    return n[:1] if n else ""
+
+
+def _researcher_families(person: Researcher) -> List[str]:
+    """The surnames a researcher might publish under: the ORCID family name, plus the last word of the credit and other names."""
+    fams = [person.family] if person.family else []
+    for n in [person.name, *person.other_names]:
+        words = normalize(n).split()
+        if words:
+            fams.append(words[-1])
+    return [f for f in fams if f]
+
+
+def author_is_researcher(author: Author, person: Researcher) -> bool:
+    """Is this cited author the same person as this ORCID record? Same surname, and the same first initial when both are known."""
+    family = author.family or (author.name.split()[-1] if author.name.split() else "")
+    if not family or not any(_family_match(family, f) for f in _researcher_families(person)):
+        return False
+    cited_i = _initial(author.given)
+    orcid_initials = {i for i in (_initial(person.given), *(_initial(n) for n in [person.name, *person.other_names])) if i}
+    return not cited_i or not orcid_initials or cited_i in orcid_initials
+
+
+def match_researchers(cited: List[Author], people: List[Researcher]) -> List[Author]:
+    """Marks the ORCID researchers who are cited authors (`matched`), and returns the cited authors that were confirmed."""
+    confirmed: List[Author] = []
+    for author in cited:
+        hits = [p for p in people if author_is_researcher(author, p)]
+        for p in hits:
+            p.matched = True
+        if hits:
+            confirmed.append(author)
+    return confirmed
 
 
 # A record dated later than the cited year is not always a different paper. Sources often hold a re-registered

@@ -27,3 +27,38 @@ describe("detail panel wording", () => {
     expect(screen.getByText(/Read as a conference paper/)).toBeInTheDocument();
   });
 });
+
+describe("ORCID authorship row", () => {
+  const person = (orcid: string, name: string, matched: boolean) => ({ orcid, given: "", family: "", name, other_names: [], url: `https://orcid.org/${orcid}`, matched });
+
+  it("shows confirmed authors with links to their ORCID profiles, cited authors first", () => {
+    show(citation(7, "verified", {
+      sources: [{
+        source: "orcid", label: "ORCID Public API", kind: "author", status: "match", method: "doi", score: 100, fields: {},
+        note: "2 of 3 cited authors list this paper on their ORCID record",
+        researchers: [person("0000-0001-0000-0001", "Yann LeCun", true), person("0000-0009-0000-0009", "Priya Raman", false)],
+      }],
+    }));
+    const row = screen.getByText("ORCID Public API").closest("tr")!;
+    expect(row).toHaveTextContent("Authors confirmed");
+    expect(row).toHaveTextContent("2 of 3 cited authors list this paper on their ORCID record");
+    expect(screen.getByRole("link", { name: "Yann LeCun" })).toHaveAttribute("href", "https://orcid.org/0000-0001-0000-0001");
+    expect(screen.getByRole("link", { name: "Priya Raman" })).toBeInTheDocument();
+  });
+
+  it("says 'Listed by others' and names them when the paper belongs to people who were not cited", () => {
+    show(citation(8, "suspicious", {
+      sources: [{
+        source: "orcid", label: "ORCID Public API", kind: "author", status: "partial", method: "doi", fields: {},
+        note: "2 researchers list this paper on ORCID; none of them is a cited author",
+        researchers: [person("0000-0001-0000-0001", "Yann LeCun", false), person("0000-0001-0000-0003", "Geoffrey Hinton", false)],
+      }],
+    }));
+    const row = screen.getByText("ORCID Public API").closest("tr")!;
+    expect(row).toHaveTextContent("Listed by others");
+    expect(row).toHaveTextContent("none of them is a cited author");
+    expect(row.querySelector(".chip")).toHaveClass("src-partial");
+    expect(screen.getByRole("link", { name: "Geoffrey Hinton" })).toHaveAttribute("href", "https://orcid.org/0000-0001-0000-0003");
+    expect(row).not.toHaveTextContent("✓");
+  });
+});

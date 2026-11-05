@@ -6,7 +6,7 @@ relevant to your own paper, and lets you look up and search papers without leavi
 
 * **Backend:** Python, FastAPI, SQLite
 * **Frontend:** React + TypeScript (Vite)
-* **Data sources:** CrossRef, OpenAlex, DOAJ (all free)
+* **Data sources:** CrossRef, OpenAlex, DOAJ, plus DBLP, DataCite and Open Library (all free), and an optional ORCID authorship check (free credentials)
 * **Reference extraction:** GROBID (free, self-hosted, runs in Docker)
 
 ---
@@ -66,6 +66,8 @@ Also included:
    |--> CrossRef : look up the DOI; if missing or it points to a different paper, search by title
    |--> OpenAlex : same, independently
    |--> DOAJ     : is the journal listed? (a hit raises confidence; a miss never lowers it)
+   |--> ORCID    : do the cited authors list the paper on their ORCID record? (optional; a hit raises
+   |               confidence, a miss never lowers it)
    |--> Heuristics: placeholder DOI suffixes, impossible volume/year, near-miss journal names,
    |                clusters of suspicious citations ...
    v
@@ -94,7 +96,9 @@ Key design points:
 | **A contact email** | CrossRef and OpenAlex give faster, more reliable service to callers who identify themselves ("polite pool"). The email is only sent as a `mailto` parameter and in the `User-Agent`. | Just use your real email in `CONTACT_EMAIL`. |
 | **An OpenAlex API key** | OpenAlex's documentation recommends a free key (some of its pages describe it as required). It meters usage, and search/list calls draw on a small free allowance. | Create one at <https://openalex.org/settings/api> and put it in `OPENALEX_API_KEY`. |
 
-No key is needed for CrossRef, DOAJ or GROBID.
+| **ORCID credentials** (optional) | Turns on the ORCID authorship check: it confirms that the cited authors list the paper on their ORCID record. Without them the check is skipped and everything else works the same. | Sign in at <https://orcid.org>, open **Developer tools**, register a public API client, and put the client ID and secret in `ORCID_CLIENT_ID` and `ORCID_CLIENT_SECRET`. The app gets its own access token from them; you don't need to request one. |
+
+No key is needed for CrossRef, DOAJ or GROBID. Keep your ORCID secret in `.env` only: git ignores that file.
 
 ### Software
 
@@ -251,6 +255,9 @@ Settings come from environment variables or the `.env` file (Docker: the project
 | `GROBID_TIMEOUT_SECONDS` | `180` | Increase for very large PDFs. |
 | `PENALTY_HIGH` / `PENALTY_MEDIUM` / `PENALTY_LOW` / `PENALTY_CAP` | `25` / `12` / `5` / `40` | How much heuristic flags reduce the score. |
 | `DOAJ_BONUS`, `AGREEMENT_BONUS` | `5`, `5` | Score bonus for a DOAJ hit / when two sources agree. |
+| `ORCID_CLIENT_ID`, `ORCID_CLIENT_SECRET` | *(empty)* | ORCID public API credentials. Empty = the ORCID check is skipped. |
+| `ENABLE_ORCID` | `true` | `false` = never use ORCID, even with credentials set. |
+| `ORCID_BONUS` | `5` | Score bonus when a cited author lists the paper on their ORCID record. |
 | `SENTENCE_HIGH_ST`, `PAPER_HIGH_ST` | `0.40`, `0.30` | Relevance thresholds for sentence-transformers. |
 | `SENTENCE_HIGH_TFIDF`, `PAPER_HIGH_TFIDF` | `0.18`, `0.10` | Relevance thresholds for the TF-IDF fallback. |
 
@@ -265,7 +272,7 @@ Settings come from environment variables or the `.env` file (Docker: the project
 4. Read the report. Click a column filter chip (Ghost, Suspicious, …) or change the sort order. Click
    **View detail** on any row to see:
    * your citation next to the source record, field by field (title, authors, journal, year, volume, pages, DOI);
-   * the per-source result (CrossRef, OpenAlex, DOAJ) and any fabrication-pattern flags;
+   * the per-source result (CrossRef, OpenAlex, DOAJ, and ORCID when it confirmed the authors or found who really lists the paper, with links to their ORCID profiles) and any fabrication-pattern flags;
    * a plain-English reason, and links to the DOI, the publisher page and a free full-text copy if one exists;
    * **Copy corrected citation** (choose a style first), **Open in Paper Finder**, **Find a replacement**
      (ghost / suspicious rows) and **Add to export list**.
@@ -360,8 +367,19 @@ Fields you did not cite are left out and the weights re-normalised. Then:
 In the detail panel, **"closest search results considered"** lists the candidates a search returned and why each
 was accepted or rejected, so a surprising verdict can be explained.
 
-**Overall confidence** = the best source score, +5 if two sources agree, +5 if the journal is in DOAJ (never
-a penalty for a miss), minus heuristic flag penalties (high 25, medium 12, low 5, total capped at 40).
+**Overall confidence** = the best source score, +5 if two sources agree, +5 if the journal is in DOAJ, +5 if a cited
+author lists the paper on their ORCID record (never a penalty for a DOAJ or ORCID miss), minus heuristic flag
+penalties (high 25, medium 12, low 5, total capped at 40). The bonuses never lift a citation past the limit set by a
+field that clearly contradicts the record.
+
+**ORCID** is a registry of researchers, not of papers, so it is never asked whether a paper exists. Once CrossRef or
+OpenAlex has found the paper, ORCID is asked which researchers list its DOI as their own work (`doi-self`). A cited
+author among them confirms the authorship ("Authors confirmed"). If the paper is listed only by other people, the row
+says "Listed by others" and names them, which helps when an AI attributed a real paper to the wrong authors. In every
+other case (nobody lists the paper, no DOI, ORCID not answering) there is no ORCID row at all, because many researchers
+have no ORCID record or don't list every paper; the queries still appear in the transparency log. ORCID never lowers a
+score. It is also a second opinion for the "unknown author" flag: that is only raised when neither OpenAlex nor ORCID
+knows the first author.
 
 | Confidence | Verdict | Typical situation |
 |---|---|---|
@@ -385,7 +403,7 @@ Interactive documentation is at `http://localhost:8000/docs`.
 | Method and path | Purpose |
 |---|---|
 | `GET /health` | Status of the API, GROBID, LibreOffice and key settings |
-| `GET /health/sources` | Live test of the connection to CrossRef, OpenAlex and DOAJ, with the reason for any failure |
+| `GET /health/sources` | Live test of the connection to CrossRef, OpenAlex, DOAJ, the enabled secondary sources and (when configured) ORCID, with the reason for any failure |
 | `POST /citations/count` | `{ "text": "…" }` → `{ "count": N }` (live counter) |
 | `POST /verify/citations` | Mode A: `{ "text": "…" }` → `{ "job_id": "…" }` |
 | `POST /verify/document` | Modes B/C: multipart `file` (`.pdf`, `.docx`, `.bib`, `.ris`) and `relevance` (`true`/`false`) → `{ "job_id": "…" }` |
@@ -477,6 +495,7 @@ any other list (no relevance check, since there is no body text).
 | Blue banner "The backend cannot reach GROBID right now" | The banner comes from the backend's own check (`/health`), not from the page. The page re-checks every few seconds; GROBID can take 1-2 minutes to start (longer on Apple Silicon, where the image runs under emulation). The banner text says why. Pasted citations still work meanwhile (built-in parser); only PDF/DOCX uploads need GROBID. If it never clears: `docker compose ps`, `docker compose logs grobid`, give Docker at least 4 GB of memory, and check that `GROBID_URL` is `http://grobid:8070` inside Compose. |
 | I clicked *Verify Citations* and nothing seemed to happen | The progress bar and the report appear **below** the two input panels; the page scrolls to them automatically, but scroll down if it did not. If there is still nothing: open the browser's developer tools (F12) → **Network** tab and click Verify again. You should see `POST /verify/citations` (status 200) followed by `/jobs/<id>/stream`. A red or failed request tells you what is wrong. Then run `docker compose logs -f backend` while you click Verify. |
 | The report appears but every citation is *Inconclusive* | The backend cannot reach the data sources. Click **Test connection to data sources** (Verify page, right-hand panel) or open <http://localhost:8000/health/sources>. It reports CrossRef, OpenAlex and DOAJ separately and says whether the problem is no internet access from the container, a refused request (HTTP 401/403 usually means a wrong or missing `OPENALEX_API_KEY`), or something else. |
+| ORCID never appears in the details | It only appears when it finds something, so check the connection: open <http://localhost:8000/health/sources>. "ORCID refused the client ID / secret" means `ORCID_CLIENT_ID` or `ORCID_CLIENT_SECRET` in `.env` is wrong (restart the backend after fixing it). The transparency log also shows each ORCID query and its answer. |
 | Document job fails: "Could not reach GROBID" | GROBID is down, or `GROBID_URL` is wrong. Inside Compose it must be `http://grobid:8070`. |
 | Document job fails: "No reference list was found" | The PDF has no extractable bibliography, or is a scanned image. |
 | DOCX upload error mentioning LibreOffice | Install LibreOffice (section 5), build the image with `INSTALL_LIBREOFFICE=true`, or upload a PDF. |
