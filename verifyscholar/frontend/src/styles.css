@@ -252,8 +252,8 @@ kbd { font-family: ui-monospace, Menlo, monospace; font-size: .8rem; border: 1px
 .loading-cancel { margin-top: .35rem; font-size: .85rem; }
 @media (prefers-reduced-motion: reduce) { .spinner { animation: none; border-top-color: var(--brand); border-right-color: var(--brand); } .loading-overlay { animation: none; } }
 
-/* paper abstract: justified, with hyphenation so the justified lines don't open wide gaps */
-.abstract { text-align: justify; text-justify: inter-word; -webkit-hyphens: auto; hyphens: auto; line-height: 1.7; max-width: 80ch; }
+/* paper abstract: justified across the full card width, with hyphenation so the justified lines don't open wide gaps */
+.abstract { text-align: justify; text-justify: inter-word; -webkit-hyphens: auto; hyphens: auto; line-height: 1.7; }
 
 /* compact sticky navbar on phones (after the base .nav rules so it wins) */
 @media (max-width: 640px) {
