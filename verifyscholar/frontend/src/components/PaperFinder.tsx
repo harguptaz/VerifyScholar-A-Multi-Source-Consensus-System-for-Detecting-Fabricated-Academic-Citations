@@ -179,7 +179,6 @@ export function PaperFinder({ seed }: { seed: FinderSeed | null }) {
           ) : (
             <form onSubmit={onSearch} className="finder-form wrap" noValidate>
               <input className="text-input grow" value={q} onChange={(e) => setQ(e.target.value)} placeholder="Keywords or title, e.g. transformer sentiment analysis Hindi" aria-label="Search papers" />
-              <button className="btn primary" disabled={searchTab.busy || q.trim().length < 2 || yearShown}>{searchTab.busy ? "Searching…" : "Search"}</button>
               <div className={yearShown ? "filters has-error" : "filters"}>
                 <div className="year-field">
                   <label>From <input className={years.from ? "year invalid" : "year"} inputMode="numeric" value={yearFrom} placeholder="2018"
@@ -205,6 +204,7 @@ export function PaperFinder({ seed }: { seed: FinderSeed | null }) {
                 </label>
                 <label className="check"><input type="checkbox" checked={oa} onChange={(e) => setOa(e.target.checked)} /> Open access only</label>
               </div>
+              <button className="btn primary" disabled={searchTab.busy || q.trim().length < 2 || yearShown}>{searchTab.busy ? "Searching…" : "Search"}</button>
             </form>
           )}
           {tab.error && <div className="notice error">{tab.error}</div>}

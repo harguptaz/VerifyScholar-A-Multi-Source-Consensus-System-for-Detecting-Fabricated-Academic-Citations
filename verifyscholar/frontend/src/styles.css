@@ -201,10 +201,17 @@ kbd { font-family: ui-monospace, Menlo, monospace; font-size: .8rem; border: 1px
 .finder { flex: 1; display: flex; flex-direction: column; }
 /* fills the space between the navbar and the footer, and centres the card in it */
 .finder-stage.hero { flex: 1; display: flex; align-items: center; justify-content: center; padding-bottom: 4vh; }
-.finder-card.hero { width: min(100%, 820px); padding: 1.4rem 1.8rem 1.6rem; margin-bottom: 0; box-shadow: 0 8px 30px rgba(16, 36, 43, .07); }
-.finder-intro { text-align: center; margin: 1.1rem 0 1rem; } .finder-intro h2 { font-size: 1.7rem; margin-bottom: .3rem; }
+.finder-card.hero { width: min(100%, 920px); padding: 2rem 2.4rem 2.3rem; margin-bottom: 0; box-shadow: 0 8px 30px rgba(16, 36, 43, .07); }
+.finder-intro { text-align: center; margin: 1.5rem 0 1.3rem; } .finder-intro h2 { font-size: 1.7rem; margin-bottom: .3rem; }
 .finder-card.hero .text-input { font-size: 1.05rem; padding: .8rem 1rem; border-radius: 12px; }
 .finder-card.hero .finder-form > .btn { padding: .8rem 1.3rem; font-size: 1rem; border-radius: 12px; }
+/* centred card: the input takes the full width and the Look up / Search button sits centred below it (and below the filters) */
+.finder-card.hero .finder-form { flex-wrap: wrap; justify-content: center; }
+.finder-card.hero .finder-form > .text-input { flex: 1 1 100%; }
+.finder-card.hero .finder-form > .btn { min-width: 11rem; margin-top: .8rem; }
+/* results view: keep the button on the same row as the input, filters on the row below */
+.finder-card:not(.hero) .finder-form.wrap > .btn { order: 1; }
+.finder-card:not(.hero) .finder-form.wrap > .filters { order: 2; }
 .finder-card.hero .filters { justify-content: center; margin-top: .4rem; }
 /* the error sits just under its box without pushing the other filters out of line */
 .year-field { position: relative; display: flex; align-items: center; }
