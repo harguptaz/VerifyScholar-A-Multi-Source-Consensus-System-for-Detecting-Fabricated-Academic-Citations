@@ -4,6 +4,7 @@ import { authorsLine, venueLine } from "../format";
 import { useExportList } from "../exportList";
 import type { NetworkResponse, PaperCardData, PaperRecord, Style } from "../types";
 import { OABadge, RetractionBadge } from "./Badges";
+import { CiteControl } from "./CiteControl";
 import { PaperList } from "./PaperList";
 
 type Kind = "references" | "cited-by" | "related";
@@ -112,12 +113,9 @@ export function PaperCard({ data, onOpen, onBack }: Props) {
         <p className="muted small">VerifyScholar only links to legal copies; it never hosts or proxies paywalled PDFs.</p>
       </div>
 
-      <div className="btn-row">
+      <div className="paper-card-actions">
+        <CiteControl style={style} onStyle={setStyle} onCopy={() => void cite()} label="Copy citation" />
         <button className="btn" onClick={() => (list.has(r) ? list.remove(r) : list.add(r))}>{list.has(r) ? "✓ In export list (click to remove)" : "Add to export list"}</button>
-        <select value={style} onChange={(e) => setStyle(e.target.value as Style)} aria-label="Citation style">
-          <option value="apa">APA</option><option value="ieee">IEEE</option><option value="harvard">Harvard</option><option value="vancouver">Vancouver</option><option value="mla">MLA</option>
-        </select>
-        <button className="btn" onClick={cite}>Copy citation</button>
       </div>
       {formatted && <div className="notice ok selectable">{formatted}</div>}
       {fmtError && <div className="notice error">{fmtError}</div>}
@@ -133,7 +131,9 @@ export function PaperCard({ data, onOpen, onBack }: Props) {
       {tab === "overview" ? (
         <div>
           <h4>Abstract</h4>
-          <p>{r.abstract ?? <span className="muted">No abstract is available from CrossRef or OpenAlex for this paper.</span>}</p>
+          {r.abstract
+            ? <p className="abstract" lang="en">{r.abstract}</p>
+            : <p className="muted">No abstract is available from CrossRef or OpenAlex for this paper.</p>}
           <dl className="facts">
             {r.publisher && <><dt>Publisher</dt><dd>{r.publisher}</dd></>}
             {r.issn.length > 0 && <><dt>ISSN</dt><dd>{r.issn.join(", ")}</dd></>}

@@ -123,3 +123,126 @@ describe("Paper Finder (Mode D)", () => {
     expect(screen.getByRole("button", { name: "Candidate one" })).toBeInTheDocument();
   });
 });
+
+describe("Paper Finder layout, tabs and year filters", () => {
+  const year = new Date().getFullYear();
+  const lookupOk = { method: "GET", path: "/papers/lookup", handler: () => ({ query: "x", query_type: "doi", paper: card(), candidates: [], message: "" }) };
+
+  it("is centred like a search engine until there is something to show, then moves to the top", async () => {
+    mockFetch([{ method: "GET", path: "/health", handler: () => health }, lookupOk]);
+    const user = userEvent.setup();
+    render(<App />);
+    await openFinder(user);
+    const finder = () => document.querySelector(".finder-card")!;
+    expect(finder()).toHaveClass("hero");
+    expect(screen.getByRole("heading", { name: "Find a paper" })).toBeInTheDocument();
+
+    await user.type(screen.getByLabelText("DOI, link or title"), "10.1038/nature14539");
+    await user.click(screen.getByRole("button", { name: "Look up" }));
+    await screen.findByRole("heading", { name: "Deep learning" });
+    expect(finder()).not.toHaveClass("hero");
+    expect(screen.queryByRole("heading", { name: "Find a paper" })).not.toBeInTheDocument();
+  });
+
+  it("keeps lookup results in the lookup tab only, and restores them when you come back", async () => {
+    mockFetch([{ method: "GET", path: "/health", handler: () => health }, lookupOk]);
+    const user = userEvent.setup();
+    render(<App />);
+    await openFinder(user);
+    await user.type(screen.getByLabelText("DOI, link or title"), "10.1038/nature14539");
+    await user.click(screen.getByRole("button", { name: "Look up" }));
+    await screen.findByRole("heading", { name: "Deep learning" });
+
+    await user.click(screen.getByRole("button", { name: "Search papers" }));
+    expect(screen.queryByRole("heading", { name: "Deep learning" })).not.toBeInTheDocument();
+    expect(document.querySelector(".finder-card")).toHaveClass("hero"); // search has nothing to show yet
+
+    await user.click(screen.getByRole("button", { name: "Look up a DOI, link or title" }));
+    expect(screen.getByRole("heading", { name: "Deep learning" })).toBeInTheDocument();
+  });
+
+  it("validates the year filters and blocks the search while one is wrong", async () => {
+    const { calls } = mockFetch([
+      { method: "GET", path: "/health", handler: () => health },
+      { method: "GET", path: "/papers/search", handler: () => ({ query: "deep", page: 1, per_page: 10, total: 0, items: [], warnings: [] }) },
+    ]);
+    const user = userEvent.setup();
+    render(<App />);
+    await openFinder(user);
+    await user.click(screen.getByRole("button", { name: "Search papers" }));
+    await user.type(screen.getByLabelText("Search papers", { selector: "input" }), "deep learning");
+    const from = screen.getByPlaceholderText("2018");
+    const to = screen.getByPlaceholderText(String(year));
+    const searchBtn = () => screen.getByRole("button", { name: "Search", exact: true } as never);
+
+    // a half-typed year is not flagged while typing, only on leaving the box
+    await user.type(from, "20");
+    expect(screen.queryByText("Enter a 4-digit year")).not.toBeInTheDocument();
+    await user.tab();
+    expect(screen.getByText("Enter a 4-digit year")).toBeInTheDocument();
+    expect(from).toHaveAttribute("aria-invalid", "true");
+    expect(searchBtn()).toBeDisabled();
+
+    // out of range
+    await user.clear(from);
+    await user.type(from, "1850");
+    expect(screen.getByText(`Year must be between 1900 and ${year}`)).toBeInTheDocument();
+    await user.clear(from);
+    await user.type(from, String(year + 1));
+    expect(screen.getByText(`Year must be between 1900 and ${year}`)).toBeInTheDocument();
+
+    // "To" earlier than "From": the error sits under "To"
+    await user.clear(from);
+    await user.type(from, "2020");
+    await user.type(to, "2015");
+    const toError = screen.getByText("'To' can't be earlier than 'From'");
+    expect(toError).toHaveAttribute("id", "year-to-error");
+    expect(to).toHaveAttribute("aria-invalid", "true");
+    expect(searchBtn()).toBeDisabled();
+    expect(calls.some((c) => c.url.pathname === "/papers/search")).toBe(false);
+
+    // fixed: the search runs with both years
+    await user.clear(to);
+    await user.type(to, "2024");
+    expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+    await user.click(searchBtn());
+    await screen.findByText(/No papers matched/);
+    const params = calls.find((c) => c.url.pathname === "/papers/search")!.url.searchParams;
+    expect(params.get("year_from")).toBe("2020");
+    expect(params.get("year_to")).toBe("2024");
+  });
+
+  it("pressing Search reveals a half-typed year instead of searching", async () => {
+    const { calls } = mockFetch([{ method: "GET", path: "/health", handler: () => health }]);
+    const user = userEvent.setup();
+    render(<App />);
+    await openFinder(user);
+    await user.click(screen.getByRole("button", { name: "Search papers" }));
+    await user.type(screen.getByLabelText("Search papers", { selector: "input" }), "deep learning");
+    await user.type(screen.getByPlaceholderText("2018"), "199{Enter}");
+    expect(screen.getByText("Enter a 4-digit year")).toBeInTheDocument();
+    expect(calls.some((c) => c.url.pathname === "/papers/search")).toBe(false);
+  });
+
+  it("joins the citation style and the copy button into one 'Cite as' control", async () => {
+    const { calls } = mockFetch([
+      { method: "GET", path: "/health", handler: () => health }, lookupOk,
+      { method: "POST", path: "/papers/format", handler: () => ({ text: "LeCun, Y. … Deep learning." }) },
+    ]);
+    const user = userEvent.setup();
+    render(<App />);
+    await openFinder(user);
+    await user.type(screen.getByLabelText("DOI, link or title"), "10.1038/nature14539");
+    await user.click(screen.getByRole("button", { name: "Look up" }));
+    await screen.findByRole("heading", { name: "Deep learning" });
+
+    const cite = screen.getByRole("group", { name: "Cite as" });
+    await user.selectOptions(within(cite).getByLabelText("Citation style"), "ieee");
+    await user.click(within(cite).getByRole("button", { name: "Copy citation" }));
+    await screen.findByText("LeCun, Y. … Deep learning.");
+    const body = calls.find((c) => c.url.pathname === "/papers/format")!.body as { style: string };
+    expect(body.style).toBe("ieee");
+    // "Add to export list" is no longer wedged between the style and the copy button
+    expect(within(cite).queryByRole("button", { name: /export list/ })).not.toBeInTheDocument();
+  });
+});

@@ -27,7 +27,7 @@ export function ExportListPanel({ lastJobId }: { lastJobId: string | null }) {
         </ul>
       )}
       {list.items.length > 0 && <button className="link" onClick={list.clear}>Clear list</button>}
-      <h3>Export</h3>
+      <h3 className="export-heading">Export</h3>
       <BibliographyExport jobId={lastJobId} />
     </div>
   );

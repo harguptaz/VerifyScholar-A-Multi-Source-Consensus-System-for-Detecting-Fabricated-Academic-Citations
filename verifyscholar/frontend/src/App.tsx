@@ -6,6 +6,8 @@ import type { FinderSeed, HealthResponse } from "./types";
 import { ExportListPanel } from "./components/ExportListPanel";
 import { HelpSidebar, PUSH_QUERY, useMediaQuery } from "./components/HelpSidebar";
 import { PaperFinder } from "./components/PaperFinder";
+import { ThemeMenu } from "./components/ThemeMenu";
+import { useTheme } from "./theme";
 import { VerifyPage } from "./components/VerifyPage";
 
 type Tab = "verify" | "finder" | "export";
@@ -19,8 +21,22 @@ function Shell() {
   const [apiDown, setApiDown] = useState(false);
   const [helpOpen, setHelpOpen] = useState(false);
   const helpButton = useRef<HTMLButtonElement>(null);
+  const topbar = useRef<HTMLElement>(null);
   const push = useMediaQuery(PUSH_QUERY);
+  const [theme, setTheme] = useTheme();
   const closeHelp = useCallback(() => setHelpOpen(false), []);
+
+  // the navbar is sticky; its height (which grows when it wraps on small screens) is shared with the CSS
+  useEffect(() => {
+    const el = topbar.current;
+    if (!el) return;
+    const set = () => document.documentElement.style.setProperty("--topbar-h", `${el.offsetHeight}px`);
+    set();
+    if (typeof ResizeObserver === "undefined") return;
+    const ro = new ResizeObserver(set);
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, []);
 
   // "?" opens or closes the help, except while typing or while a citation's details are open
   useEffect(() => {
@@ -62,7 +78,7 @@ function Shell() {
 
   return (
     <div className={helpOpen && push ? "app help-push" : "app"}>
-      <header className="topbar">
+      <header className="topbar" ref={topbar}>
         <div className="brand"><span className="logo">✓</span> VerifyScholar <span className="tagline">Check, find and cite real papers</span></div>
         <nav className="nav">
           <button className={tab === "verify" ? "nav-btn active" : "nav-btn"} onClick={() => setTab("verify")}>Verify citations</button>
@@ -78,6 +94,7 @@ function Shell() {
           >
             <span className="help-icon" aria-hidden="true">?</span> <span className="help-label">How it works</span>
           </button>
+          <ThemeMenu theme={theme} onChange={setTheme} />
         </nav>
       </header>
 
@@ -95,9 +112,9 @@ function Shell() {
             )}
 
             {/* keep all tabs mounted so results survive switching tabs */}
-            <div hidden={tab !== "verify"}><VerifyPage onOpenFinder={openFinder} onJobDone={setLastJobId} /></div>
-            <div hidden={tab !== "finder"}><PaperFinder seed={seed} /></div>
-            <div hidden={tab !== "export"}><ExportListPanel lastJobId={lastJobId} /></div>
+            <div hidden={tab !== "verify"} className="tab-pane centered"><VerifyPage onOpenFinder={openFinder} onJobDone={setLastJobId} /></div>
+            <div hidden={tab !== "finder"} className="tab-pane"><PaperFinder seed={seed} /></div>
+            <div hidden={tab !== "export"} className="tab-pane centered"><ExportListPanel lastJobId={lastJobId} /></div>
           </main>
 
           <footer className="footer">

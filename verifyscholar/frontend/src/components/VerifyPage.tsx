@@ -27,6 +27,20 @@ export function VerifyPage({ onOpenFinder, onJobDone }: Props) {
   const progressRef = useRef<HTMLDivElement>(null);
   const resultRef = useRef<HTMLDivElement>(null);
 
+  // the upload pane is kept as tall as the paste pane, so the card doesn't jump when switching tabs
+  const pastePane = useRef<HTMLDivElement>(null);
+  const [pasteHeight, setPasteHeight] = useState(0);
+  useEffect(() => {
+    const el = pastePane.current;
+    if (!el) return;
+    const set = () => { if (el.offsetHeight > 0) setPasteHeight(el.offsetHeight); };
+    set();
+    if (typeof ResizeObserver === "undefined") return;
+    const ro = new ResizeObserver(set);
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, [mode]);
+
   // The progress bar and the report sit below the input panels: bring them into view.
   useEffect(() => {
     if (running) progressRef.current?.scrollIntoView?.({ behavior: "smooth", block: "start" });
@@ -84,12 +98,12 @@ export function VerifyPage({ onOpenFinder, onJobDone }: Props) {
           </div>
 
           {mode === "paste" ? (
-            <>
+            <div className="paste-pane" ref={pastePane}>
               <textarea className="paste" value={text} onChange={(e) => setText(e.target.value)} placeholder={PLACEHOLDER} rows={11} aria-label="Citation list" />
               <div className="counter">Citation count detected: <strong>{count}</strong></div>
-            </>
+            </div>
           ) : (
-            <div className="upload">
+            <div className="upload" style={pasteHeight ? { minHeight: pasteHeight } : undefined}>
               <div
                 className="dropzone"
                 onClick={() => fileInput.current?.click()}
