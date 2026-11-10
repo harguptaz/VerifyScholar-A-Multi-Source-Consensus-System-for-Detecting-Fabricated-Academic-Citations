@@ -151,6 +151,8 @@ export function PaperFinder({ seed }: { seed: FinderSeed | null }) {
 
   return (
     <div>
+      {/* the stage fills the screen and centres the card while there is nothing to show; the card only hugs its content */}
+      <div className={hasContent ? "finder-stage" : "finder-stage hero"}>
       <div className={hasContent ? "card finder-card" : "card finder-card hero"}>
         <div className="finder-inner">
           <div className="tabs">
@@ -207,6 +209,7 @@ export function PaperFinder({ seed }: { seed: FinderSeed | null }) {
           )}
           {tab.error && <div className="notice error">{tab.error}</div>}
         </div>
+      </div>
       </div>
 
       {mode === "lookup" ? (

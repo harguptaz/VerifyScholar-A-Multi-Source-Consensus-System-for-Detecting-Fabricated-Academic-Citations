@@ -190,10 +190,10 @@ kbd { font-family: ui-monospace, Menlo, monospace; font-size: .8rem; border: 1px
 @media (prefers-reduced-motion: reduce) { .help, .help.push, .help.overlay, .input-col { transition: none !important; } .help-backdrop { animation: none; } }
 
 /* paper finder: centred like a search engine until there is something to show */
-.finder-card { transition: min-height .3s ease; min-height: 0; }
-.finder-card.hero { min-height: calc(100vh - var(--topbar-h) - 2.4rem); display: flex; align-items: center; justify-content: center; padding: 2rem 1.3rem; }
-.finder-card.hero .finder-inner { width: min(100%, 760px); }
-.finder-intro { text-align: center; margin: 1.6rem 0 1rem; } .finder-intro h2 { font-size: 1.7rem; margin-bottom: .3rem; }
+.finder-stage { transition: min-height .3s ease; min-height: 0; }
+.finder-stage.hero { min-height: calc(100vh - var(--topbar-h) - 2.4rem); display: flex; align-items: center; justify-content: center; padding-bottom: 4vh; }
+.finder-card.hero { width: min(100%, 820px); padding: 1.4rem 1.8rem 1.6rem; margin-bottom: 0; box-shadow: 0 8px 30px rgba(16, 36, 43, .07); }
+.finder-intro { text-align: center; margin: 1.1rem 0 1rem; } .finder-intro h2 { font-size: 1.7rem; margin-bottom: .3rem; }
 .finder-card.hero .text-input { font-size: 1.05rem; padding: .8rem 1rem; border-radius: 12px; }
 .finder-card.hero .finder-form > .btn { padding: .8rem 1.3rem; font-size: 1rem; border-radius: 12px; }
 .finder-card.hero .filters { justify-content: center; margin-top: .4rem; }
@@ -202,7 +202,7 @@ kbd { font-family: ui-monospace, Menlo, monospace; font-size: .8rem; border: 1px
 .filters.has-error { padding-bottom: 1.2rem; row-gap: 1.6rem; }
 .year.invalid, .year.invalid:focus { border-color: var(--bad); box-shadow: 0 0 0 2px var(--bad-bg); outline: none; }
 .field-error { position: absolute; top: calc(100% + .2rem); right: 0; white-space: nowrap; color: var(--bad); font-size: .8rem; }
-@media (max-width: 640px) { .finder-inner .tabs .tab { flex: 1; text-align: center; padding: .45rem .3rem; } .finder-form { flex-wrap: wrap; } .finder-form > .btn { width: 100%; } .finder-card.hero { padding: 1.2rem .9rem; } .finder-intro h2 { font-size: 1.4rem; } }
+@media (max-width: 640px) { .finder-inner .tabs .tab { flex: 1; text-align: center; padding: .45rem .3rem; } .finder-form { flex-wrap: wrap; } .finder-form > .btn { width: 100%; } .finder-card.hero { padding: 1.1rem .9rem 1.2rem; } .finder-intro h2 { font-size: 1.4rem; } }
 
 /* "Cite as": the style and the copy button as one control */
 .cite-control { display: inline-flex; align-items: center; gap: .55rem; flex-wrap: wrap; margin: .3rem 0 .5rem; }
@@ -222,7 +222,7 @@ kbd { font-family: ui-monospace, Menlo, monospace; font-size: .8rem; border: 1px
 .export-btn { margin-left: .4rem; }
 .export-check { margin: .2rem 0 .6rem; }
 @media (max-width: 640px) { .export-controls { flex-direction: column; align-items: stretch; } .field { min-width: 0; } .export-btn { margin-left: 0; } }
-@media (prefers-reduced-motion: reduce) { .finder-card { transition: none; } }
+@media (prefers-reduced-motion: reduce) { .finder-stage { transition: none; } }
 
 /* compact sticky navbar on phones (after the base .nav rules so it wins) */
 @media (max-width: 640px) {
