@@ -40,8 +40,8 @@ export function BibliographyExport({ jobId }: Props) {
   return (
     <div className="export-box">
       <div className="export-controls">
-        <label>
-          Format
+        <label className="field">
+          <span className="field-label">Format</span>
           <select value={format} onChange={(e) => setFormat(e.target.value as ExportFormat)}>
             <option value="text">Formatted text</option>
             <option value="bibtex">BibTeX (.bib)</option>
@@ -49,8 +49,8 @@ export function BibliographyExport({ jobId }: Props) {
             <option value="csv">CSV</option>
           </select>
         </label>
-        <label>
-          Style
+        <label className="field">
+          <span className="field-label">Style</span>
           <select value={style} onChange={(e) => setStyle(e.target.value as Style)} disabled={format === "bibtex" || format === "ris"}>
             <option value="apa">APA</option>
             <option value="ieee">IEEE</option>
@@ -59,16 +59,16 @@ export function BibliographyExport({ jobId }: Props) {
             <option value="mla">MLA</option>
           </select>
         </label>
-        {jobId && (
-          <label className="check">
-            <input type="checkbox" checked={includeSuspicious} onChange={(e) => setIncludeSuspicious(e.target.checked)} />
-            Include suspicious citations (marked for review)
-          </label>
-        )}
-        <button className="btn primary" onClick={run} disabled={busy || nothing}>
+        <button className="btn primary export-btn" onClick={run} disabled={busy || nothing}>
           {busy ? "Preparing…" : "Export bibliography"}
         </button>
       </div>
+      {jobId && (
+        <label className="check export-check">
+          <input type="checkbox" checked={includeSuspicious} onChange={(e) => setIncludeSuspicious(e.target.checked)} />
+          Include suspicious citations (marked for review)
+        </label>
+      )}
       <p className="muted small">
         {jobId ? "Includes this job's verified citations (built from the verified source records), " : "Includes "}
         {list.items.length} paper{list.items.length === 1 ? "" : "s"} from your export list.

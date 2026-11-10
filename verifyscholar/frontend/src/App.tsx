@@ -19,8 +19,21 @@ function Shell() {
   const [apiDown, setApiDown] = useState(false);
   const [helpOpen, setHelpOpen] = useState(false);
   const helpButton = useRef<HTMLButtonElement>(null);
+  const topbar = useRef<HTMLElement>(null);
   const push = useMediaQuery(PUSH_QUERY);
   const closeHelp = useCallback(() => setHelpOpen(false), []);
+
+  // the navbar is sticky; its height (which grows when it wraps on small screens) is shared with the CSS
+  useEffect(() => {
+    const el = topbar.current;
+    if (!el) return;
+    const set = () => document.documentElement.style.setProperty("--topbar-h", `${el.offsetHeight}px`);
+    set();
+    if (typeof ResizeObserver === "undefined") return;
+    const ro = new ResizeObserver(set);
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, []);
 
   // "?" opens or closes the help, except while typing or while a citation's details are open
   useEffect(() => {
@@ -62,7 +75,7 @@ function Shell() {
 
   return (
     <div className={helpOpen && push ? "app help-push" : "app"}>
-      <header className="topbar">
+      <header className="topbar" ref={topbar}>
         <div className="brand"><span className="logo">✓</span> VerifyScholar <span className="tagline">Check, find and cite real papers</span></div>
         <nav className="nav">
           <button className={tab === "verify" ? "nav-btn active" : "nav-btn"} onClick={() => setTab("verify")}>Verify citations</button>

@@ -1,5 +1,6 @@
 :root {
   --help-w: 360px;
+  --topbar-h: 56px; /* updated from the real navbar height at runtime */
   --bg: #f4f6f8;
   --card: #ffffff;
   --ink: #17212b;
@@ -27,7 +28,7 @@ a { color: var(--brand-dark); }
 [hidden] { display: none !important; }
 
 /* shell */
-.topbar { background: #10242b; color: #fff; display: flex; align-items: center; justify-content: space-between; padding: .7rem 1.5rem; gap: 1rem; flex-wrap: wrap; }
+.topbar { background: #10242b; color: #fff; display: flex; align-items: center; justify-content: space-between; padding: .7rem 1.5rem; gap: 1rem; flex-wrap: wrap; position: sticky; top: 0; z-index: 800; box-shadow: 0 1px 0 rgba(255,255,255,.06), 0 2px 10px rgba(16,36,43,.18); }
 .brand { font-weight: 700; font-size: 1.15rem; display: flex; align-items: center; gap: .6rem; }
 .logo { background: var(--brand); width: 28px; height: 28px; border-radius: 7px; display: inline-grid; place-items: center; }
 .tagline { font-weight: 400; font-size: .85rem; opacity: .7; margin-left: .4rem; }
@@ -148,7 +149,7 @@ table.data td { padding: .55rem .7rem; border-bottom: 1px solid #edf0f3; vertica
 .reason { font-size: .93rem; } .detail section { margin-bottom: .4rem; } .detail table.data th, .detail table.data td { padding: .4rem .5rem; }
 .flags { list-style: none; padding: 0; margin: 0; } .flags li { margin: .3rem 0; font-size: .9rem; }
 .sev { display: inline-block; font-size: .7rem; font-weight: 700; text-transform: uppercase; padding: 0 .4rem; border-radius: 4px; margin-right: .3rem; } .sev-high { background: var(--bad-bg); color: var(--bad); } .sev-medium { background: var(--warn-bg); color: var(--warn); } .sev-low { background: #eceff3; color: #475467; }
-.copy-row { display: flex; gap: .5rem; margin-bottom: .4rem; } .rel-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: .6rem; }
+.rel-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: .6rem; }
 
 /* paper finder */
 .paper-list { list-style: none; padding: 0; margin: 0 0 .8rem; } .paper-item { display: flex; justify-content: space-between; gap: 1rem; padding: .8rem 0; border-bottom: 1px solid #edf0f3; } .paper-item:last-child { border-bottom: 0; }
@@ -169,7 +170,7 @@ table.data td { padding: .55rem .7rem; border-bottom: 1px solid #edf0f3; vertica
 .help:focus { outline: none; }
 .help.open { visibility: visible; }
 .help-inner { height: 100%; display: flex; flex-direction: column; }
-.help.push { position: sticky; top: 0; height: 100vh; width: 0; overflow: hidden; transition: width .25s ease, visibility 0s linear .25s; }
+.help.push { position: sticky; top: var(--topbar-h); height: calc(100vh - var(--topbar-h)); width: 0; overflow: hidden; transition: width .25s ease, visibility 0s linear .25s; }
 .help.push.open { width: var(--help-w); transition: width .25s ease, visibility 0s; }
 .help.push .help-inner { width: var(--help-w); }
 .help.overlay { position: fixed; top: 0; right: 0; bottom: 0; z-index: 900; width: min(var(--help-w), 100vw); transform: translateX(100%); box-shadow: -12px 0 40px rgba(16, 36, 43, .18); transition: transform .25s ease, visibility 0s linear .25s; }
@@ -187,3 +188,46 @@ table.data td { padding: .55rem .7rem; border-bottom: 1px solid #edf0f3; vertica
 .help-shortcut { margin-top: 1rem; border-top: 1px solid var(--line); padding-top: .8rem; }
 kbd { font-family: ui-monospace, Menlo, monospace; font-size: .8rem; border: 1px solid var(--line); border-bottom-width: 2px; border-radius: 4px; padding: 0 .35rem; background: #fff; }
 @media (prefers-reduced-motion: reduce) { .help, .help.push, .help.overlay, .input-col { transition: none !important; } .help-backdrop { animation: none; } }
+
+/* paper finder: centred like a search engine until there is something to show */
+.finder-card { transition: min-height .3s ease; min-height: 0; }
+.finder-card.hero { min-height: calc(100vh - var(--topbar-h) - 2.4rem); display: flex; align-items: center; justify-content: center; padding: 2rem 1.3rem; }
+.finder-card.hero .finder-inner { width: min(100%, 760px); }
+.finder-intro { text-align: center; margin: 1.6rem 0 1rem; } .finder-intro h2 { font-size: 1.7rem; margin-bottom: .3rem; }
+.finder-card.hero .text-input { font-size: 1.05rem; padding: .8rem 1rem; border-radius: 12px; }
+.finder-card.hero .finder-form > .btn { padding: .8rem 1.3rem; font-size: 1rem; border-radius: 12px; }
+.finder-card.hero .filters { justify-content: center; margin-top: .4rem; }
+/* the error sits just under its box without pushing the other filters out of line */
+.year-field { position: relative; display: flex; align-items: center; }
+.filters.has-error { padding-bottom: 1.2rem; row-gap: 1.6rem; }
+.year.invalid, .year.invalid:focus { border-color: var(--bad); box-shadow: 0 0 0 2px var(--bad-bg); outline: none; }
+.field-error { position: absolute; top: calc(100% + .2rem); right: 0; white-space: nowrap; color: var(--bad); font-size: .8rem; }
+@media (max-width: 640px) { .finder-inner .tabs .tab { flex: 1; text-align: center; padding: .45rem .3rem; } .finder-form { flex-wrap: wrap; } .finder-form > .btn { width: 100%; } .finder-card.hero { padding: 1.2rem .9rem; } .finder-intro h2 { font-size: 1.4rem; } }
+
+/* "Cite as": the style and the copy button as one control */
+.cite-control { display: inline-flex; align-items: center; gap: .55rem; flex-wrap: wrap; margin: .3rem 0 .5rem; }
+.cite-label { font-size: .85rem; color: var(--muted); font-weight: 600; }
+.cite-group { display: inline-flex; align-items: stretch; border: 1px solid var(--line); border-radius: 9px; overflow: hidden; background: #fff; }
+.cite-group select { border: 0; border-radius: 0; border-right: 1px solid var(--line); padding: .45rem .55rem; background: var(--bg); }
+.cite-group .btn { border: 0; border-radius: 0; margin: 0; }
+.cite-group:focus-within { border-color: var(--brand); box-shadow: 0 0 0 2px rgba(15,118,110,.18); }
+.paper-card-actions { display: flex; gap: .8rem; align-items: center; flex-wrap: wrap; margin: .5rem 0; }
+
+/* bibliography export */
+.export-heading { margin-top: 1.4rem; padding-top: 1rem; border-top: 1px solid var(--line); }
+.export-box { margin-top: .4rem; }
+.export-controls { display: flex; gap: 1rem 1.2rem; align-items: flex-end; flex-wrap: wrap; margin-bottom: .6rem; }
+.field { display: flex; flex-direction: column; gap: .3rem; min-width: 11rem; }
+.field-label { font-size: .82rem; font-weight: 600; color: var(--muted); }
+.export-btn { margin-left: .4rem; }
+.export-check { margin: .2rem 0 .6rem; }
+@media (max-width: 640px) { .export-controls { flex-direction: column; align-items: stretch; } .field { min-width: 0; } .export-btn { margin-left: 0; } }
+@media (prefers-reduced-motion: reduce) { .finder-card { transition: none; } }
+
+/* compact sticky navbar on phones (after the base .nav rules so it wins) */
+@media (max-width: 640px) {
+  .topbar { padding: .45rem .7rem; gap: .35rem; }
+  .tagline { display: none; }
+  .nav { width: 100%; display: flex; gap: .2rem; }
+  .nav-btn { white-space: nowrap; padding: .35rem .55rem; font-size: .85rem; }
+}

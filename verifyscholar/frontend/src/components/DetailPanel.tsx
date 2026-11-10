@@ -5,6 +5,7 @@ import { DOI_STATUS_LABEL, FIELD_LABEL, JOURNAL_STATUS_LABEL, RELEVANCE_LABEL, V
 import { useExportList } from "../exportList";
 import type { CitationResult, SourceResult, Style } from "../types";
 import { FieldStatusTag, RetractionBadge, ScoreBar, VerdictBadge } from "./Badges";
+import { CiteControl } from "./CiteControl";
 
 interface Props {
   result: CitationResult;
@@ -274,15 +275,7 @@ export function DetailPanel({ result, onClose, onOpenFinder, position, onPrev, o
 
       <section className="actions">
         <h4>Actions</h4>
-        {record && (
-          <div className="copy-row">
-            <select value={style} onChange={(e) => setStyle(e.target.value as Style)} aria-label="Citation style">
-              <option value="apa">APA</option><option value="ieee">IEEE</option><option value="harvard">Harvard</option>
-              <option value="vancouver">Vancouver</option><option value="mla">MLA</option>
-            </select>
-            <button className="btn primary" onClick={copyCorrected} disabled={busy}>{busy ? "Formatting…" : "Copy corrected citation"}</button>
-          </div>
-        )}
+        {record && <CiteControl style={style} onStyle={setStyle} onCopy={() => void copyCorrected()} label="Copy corrected citation" busy={busy} primary />}
         {copied && <div className="notice ok"><div className="small muted">{copyError ? "Corrected citation" : "Copied to clipboard"}</div><div className="selectable">{copied}</div></div>}
         {copyError && <div className="notice error">{copyError}</div>}
         <div className="btn-row">
