@@ -109,7 +109,7 @@ function Shell() {
 
             {/* keep all tabs mounted so results survive switching tabs */}
             <div hidden={tab !== "verify"}><VerifyPage onOpenFinder={openFinder} onJobDone={setLastJobId} /></div>
-            <div hidden={tab !== "finder"}><PaperFinder seed={seed} /></div>
+            <div hidden={tab !== "finder"} className="tab-pane"><PaperFinder seed={seed} /></div>
             <div hidden={tab !== "export"}><ExportListPanel lastJobId={lastJobId} /></div>
           </main>
 

@@ -150,7 +150,7 @@ export function PaperFinder({ seed }: { seed: FinderSeed | null }) {
   const yearShown = Boolean(years.from || years.to);
 
   return (
-    <div>
+    <div className="finder">
       {/* the stage fills the screen and centres the card while there is nothing to show; the card only hugs its content */}
       <div className={hasContent ? "finder-stage" : "finder-stage hero"}>
       <div className={hasContent ? "card finder-card" : "card finder-card hero"}>
