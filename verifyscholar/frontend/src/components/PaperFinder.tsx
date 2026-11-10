@@ -1,6 +1,7 @@
-import { useEffect, useState, type FormEvent } from "react";
+import { useEffect, useRef, useState, type FormEvent } from "react";
 import { api } from "../api";
 import type { FinderSeed, LookupResponse, PaperCardData, PaperRecord, SearchResponse } from "../types";
+import { LoadingOverlay, type Pending } from "./LoadingOverlay";
 import { PaperCard } from "./PaperCard";
 import { PaperList } from "./PaperList";
 
@@ -44,9 +45,10 @@ interface TabState<R> {
   card: PaperCardData | null;
   error: string | null;
   busy: boolean;
+  pending: Pending | null; // what the loader says while busy
 }
 
-const EMPTY = { response: null, card: null, error: null, busy: false };
+const EMPTY = { response: null, card: null, error: null, busy: false, pending: null };
 
 export function PaperFinder({ seed }: { seed: FinderSeed | null }) {
   const [mode, setMode] = useState<Mode>("lookup");
@@ -70,33 +72,46 @@ export function PaperFinder({ seed }: { seed: FinderSeed | null }) {
     else setSearchTab((s) => ({ ...s, ...(patch as Partial<TabState<SearchResponse>>) }));
   };
 
-  const guard = async (m: Mode, fn: () => Promise<void>) => {
-    setTab(m, { busy: true, error: null });
+  // Each tab numbers its requests. Cancel (or a newer request) bumps the number, so a late answer is dropped.
+  const requestNo = useRef<Record<Mode, number>>({ lookup: 0, search: 0 });
+
+  const guard = async (m: Mode, pending: Pending, fn: (current: () => boolean) => Promise<void>) => {
+    const no = ++requestNo.current[m];
+    const current = () => requestNo.current[m] === no;
+    setTab(m, { busy: true, error: null, pending });
     try {
-      await fn();
+      await fn(current);
     } catch (e) {
-      setTab(m, { error: e instanceof Error ? e.message : "Something went wrong" });
+      if (current()) setTab(m, { error: e instanceof Error ? e.message : "Something went wrong" });
     } finally {
-      setTab(m, { busy: false });
+      if (current()) setTab(m, { busy: false, pending: null });
     }
   };
 
+  const cancel = (m: Mode) => {
+    requestNo.current[m]++;
+    setTab(m, { busy: false, pending: null }); // the previous results stay on screen
+  };
+
   const runLookup = (query: string) =>
-    guard("lookup", async () => {
+    guard("lookup", { title: "Looking up…", detail: query.trim() }, async (current) => {
       const r = await api.lookup(query.trim());
+      if (!current()) return;
       setLookupTab((s) => ({ ...s, response: r, card: r.paper ?? null, error: !r.paper && r.candidates.length === 0 ? r.message || "Nothing found." : null }));
     });
 
-  const runSearch = (p = 1, override?: string) =>
-    guard("search", async () => {
-      const query = (override ?? q).trim();
+  const runSearch = (p = 1, override?: string) => {
+    const query = (override ?? q).trim();
+    return guard("search", { title: p > 1 ? `Loading page ${p}…` : "Searching papers…", detail: query }, async (current) => {
       const r = await api.search({
         q: query, year_from: yearFrom ? Number(yearFrom) : undefined, year_to: yearTo ? Number(yearTo) : undefined,
         oa, type: type || undefined, sort, page: p,
       });
+      if (!current()) return;
       setSearchTab((s) => ({ ...s, response: r, card: null }));
       setPage(p);
     });
+  };
 
   // open the finder from elsewhere in the app ("Open in Paper Finder", "Find a replacement")
   useEffect(() => {
@@ -120,8 +135,9 @@ export function PaperFinder({ seed }: { seed: FinderSeed | null }) {
       setTab(m, { error: "This record has no DOI or OpenAlex ID to open." });
       return;
     }
-    void guard(m, async () => {
+    void guard(m, { title: "Opening paper…", detail: r.title || id }, async (current) => {
       const res = await api.lookup(id);
+      if (!current()) return;
       if (res.paper) setTab(m, { card: res.paper });
       else setTab(m, { error: res.message || "Could not open this paper." });
     });
@@ -151,6 +167,7 @@ export function PaperFinder({ seed }: { seed: FinderSeed | null }) {
 
   return (
     <div className="finder">
+      {tab.pending && <LoadingOverlay key={requestNo.current[mode]} pending={tab.pending} onCancel={() => cancel(mode)} />}
       {/* the stage fills the screen and centres the card while there is nothing to show; the card only hugs its content */}
       <div className={hasContent ? "finder-stage" : "finder-stage hero"}>
       <div className={hasContent ? "card finder-card" : "card finder-card hero"}>

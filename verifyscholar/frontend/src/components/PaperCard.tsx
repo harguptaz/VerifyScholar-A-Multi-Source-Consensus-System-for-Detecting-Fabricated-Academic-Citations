@@ -131,7 +131,9 @@ export function PaperCard({ data, onOpen, onBack }: Props) {
       {tab === "overview" ? (
         <div>
           <h4>Abstract</h4>
-          <p>{r.abstract ?? <span className="muted">No abstract is available from CrossRef or OpenAlex for this paper.</span>}</p>
+          {r.abstract
+            ? <p className="abstract" lang="en">{r.abstract}</p>
+            : <p className="muted">No abstract is available from CrossRef or OpenAlex for this paper.</p>}
           <dl className="facts">
             {r.publisher && <><dt>Publisher</dt><dd>{r.publisher}</dd></>}
             {r.issn.length > 0 && <><dt>ISSN</dt><dd>{r.issn.join(", ")}</dd></>}
