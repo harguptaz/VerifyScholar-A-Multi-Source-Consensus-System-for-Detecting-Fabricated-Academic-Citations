@@ -181,6 +181,15 @@ a { color: var(--brand-dark); }
 @media (max-width: 640px) { .help-btn { padding: .45rem .55rem; } .help-label { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; } }
 .help-icon { width: 18px; height: 18px; border-radius: 50%; border: 1.5px solid currentColor; display: inline-grid; place-items: center; font-size: .72rem; font-weight: 700; line-height: 1; }
 .theme-btn svg { flex: none; }
+.theme-btn .caret { opacity: .75; margin-left: -.1rem; }
+.theme-menu { position: relative; display: inline-flex; }
+.theme-menu-list { position: absolute; top: calc(100% + 6px); right: 0; z-index: 850; min-width: 210px; padding: .3rem; background: var(--card); color: var(--ink); border: 1px solid var(--line); border-radius: 10px; box-shadow: 0 12px 32px rgba(var(--shadow-rgb), .22); display: flex; flex-direction: column; animation: modal-fade .12s ease-out; }
+.theme-option { display: flex; align-items: center; gap: .6rem; width: 100%; padding: .5rem .6rem; border: 0; border-radius: 7px; background: transparent; color: var(--ink); font: inherit; font-size: .92rem; text-align: left; cursor: pointer; }
+.theme-option:hover, .theme-option:focus-visible { background: var(--row-hover); outline: none; }
+.theme-option.selected { color: var(--brand-dark); font-weight: 600; }
+.theme-option-label { flex: 1; display: flex; flex-direction: column; line-height: 1.25; }
+.theme-option-hint { font-size: .76rem; font-weight: 400; color: var(--muted); }
+.theme-check { visibility: hidden; flex: none; } .theme-option.selected .theme-check { visibility: visible; }
 .container { max-width: 1280px; margin: 1.2rem auto; padding: 0 1.2rem; }
 .workspace { display: flex; align-items: flex-start; }
 /* the page is at least one screen tall (below the navbar) with the footer at the bottom, so short pages never scroll */
@@ -402,6 +411,9 @@ kbd { font-family: ui-monospace, Menlo, monospace; font-size: .8rem; border: 1px
   .footer { padding: .6rem 1rem .8rem; font-size: .72rem; }
   .topbar { padding: .45rem .7rem; gap: .35rem; }
   .tagline { display: none; }
-  .nav { width: 100%; display: flex; gap: .2rem; }
-  .nav-btn { white-space: nowrap; padding: .35rem .55rem; font-size: .85rem; }
+  .nav { width: 100%; display: flex; gap: .15rem; }
+  .nav-btn { white-space: nowrap; padding: .35rem .4rem; font-size: .8rem; }
+  .nav .help-btn { margin-left: 0; padding: .35rem .45rem; flex: none; }
+  .theme-btn .caret { display: none; }
+  .theme-menu { margin-left: auto; }
 }

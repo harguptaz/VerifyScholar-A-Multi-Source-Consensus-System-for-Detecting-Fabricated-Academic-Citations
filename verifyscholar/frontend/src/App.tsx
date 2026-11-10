@@ -6,7 +6,8 @@ import type { FinderSeed, HealthResponse } from "./types";
 import { ExportListPanel } from "./components/ExportListPanel";
 import { HelpSidebar, PUSH_QUERY, useMediaQuery } from "./components/HelpSidebar";
 import { PaperFinder } from "./components/PaperFinder";
-import { THEME_LABEL, nextTheme, useTheme, type ThemeChoice } from "./theme";
+import { ThemeMenu } from "./components/ThemeMenu";
+import { useTheme } from "./theme";
 import { VerifyPage } from "./components/VerifyPage";
 
 type Tab = "verify" | "finder" | "export";
@@ -22,7 +23,7 @@ function Shell() {
   const helpButton = useRef<HTMLButtonElement>(null);
   const topbar = useRef<HTMLElement>(null);
   const push = useMediaQuery(PUSH_QUERY);
-  const [theme, cycleTheme] = useTheme();
+  const [theme, setTheme] = useTheme();
   const closeHelp = useCallback(() => setHelpOpen(false), []);
 
   // the navbar is sticky; its height (which grows when it wraps on small screens) is shared with the CSS
@@ -93,14 +94,7 @@ function Shell() {
           >
             <span className="help-icon" aria-hidden="true">?</span> <span className="help-label">How it works</span>
           </button>
-          <button
-            className="help-btn theme-btn"
-            onClick={cycleTheme}
-            aria-label={`Theme: ${THEME_LABEL[theme]}. Switch to ${THEME_LABEL[nextTheme(theme)]}`}
-            title={`Theme: ${THEME_LABEL[theme]} (click for ${THEME_LABEL[nextTheme(theme)]})`}
-          >
-            <ThemeIcon theme={theme} /> <span className="help-label" aria-hidden="true">{THEME_LABEL[theme]}</span>
-          </button>
+          <ThemeMenu theme={theme} onChange={setTheme} />
         </nav>
       </header>
 
@@ -139,12 +133,4 @@ export default function App() {
       <Shell />
     </ExportListProvider>
   );
-}
-
-/** Monitor for System, sun for Light, moon for Dark. */
-function ThemeIcon({ theme }: { theme: ThemeChoice }) {
-  const common = { width: 18, height: 18, viewBox: "0 0 24 24", fill: "none", stroke: "currentColor", strokeWidth: 2, strokeLinecap: "round" as const, strokeLinejoin: "round" as const, "aria-hidden": true };
-  if (theme === "light") return <svg {...common}><circle cx="12" cy="12" r="4" /><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4" /></svg>;
-  if (theme === "dark") return <svg {...common}><path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8z" /></svg>;
-  return <svg {...common}><rect x="3" y="4" width="18" height="12" rx="2" /><path d="M8 20h8M12 16v4" /></svg>;
 }

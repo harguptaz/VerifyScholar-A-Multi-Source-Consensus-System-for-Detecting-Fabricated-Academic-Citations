@@ -5,7 +5,8 @@ export type ThemeChoice = "system" | "light" | "dark";
 /** localStorage key; index.html reads it too, so the saved theme applies before the first paint. */
 export const THEME_KEY = "vs-theme";
 
-const ORDER: ThemeChoice[] = ["system", "light", "dark"];
+/** In the order the theme menu lists them. */
+export const THEME_CHOICES: ThemeChoice[] = ["system", "light", "dark"];
 
 function readChoice(): ThemeChoice {
   try {
@@ -17,7 +18,7 @@ function readChoice(): ThemeChoice {
 }
 
 /** "system" follows the OS setting (no data-theme attribute); "light" and "dark" pin the theme. */
-export function useTheme(): [ThemeChoice, () => void] {
+export function useTheme(): [ThemeChoice, (t: ThemeChoice) => void] {
   const [choice, setChoice] = useState<ThemeChoice>(readChoice);
 
   useEffect(() => {
@@ -32,11 +33,7 @@ export function useTheme(): [ThemeChoice, () => void] {
     }
   }, [choice]);
 
-  const cycle = () => setChoice(nextTheme);
-  return [choice, cycle];
+  return [choice, setChoice];
 }
 
 export const THEME_LABEL: Record<ThemeChoice, string> = { system: "System", light: "Light", dark: "Dark" };
-export function nextTheme(c: ThemeChoice): ThemeChoice {
-  return ORDER[(ORDER.indexOf(c) + 1) % ORDER.length];
-}
